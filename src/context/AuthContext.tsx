@@ -21,6 +21,11 @@ interface AuthContextValue {
   shopActive: boolean;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  signUp: (
+    email: string,
+    password: string,
+    shopName: string,
+  ) => Promise<{ error: string | null; needsConfirm: boolean }>;
   signOut: () => Promise<void>;
 }
 
@@ -107,6 +112,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error ? error.message : null };
   };
 
+  // Registers a new shop owner. The shop_name is read by the handle_new_user()
+  // DB trigger, which creates the shop and links this user as its owner.
+  const signUp = async (email: string, password: string, shopName: string) => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { shop_name: shopName.trim() } },
+    });
+    if (error) return { error: error.message, needsConfirm: false };
+    // When "Confirm email" is enabled in Supabase, no session is returned until
+    // the user verifies their email.
+    return { error: null, needsConfirm: !data.session };
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
     setProfile(null);
@@ -125,6 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       shopActive: !!profile?.shop_id && isShopActive(shop),
       loading,
       signIn,
+      signUp,
       signOut,
     }),
     [session, profile, shop, loading],
