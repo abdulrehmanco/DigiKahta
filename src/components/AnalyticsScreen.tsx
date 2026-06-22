@@ -115,12 +115,14 @@ export default function AnalyticsScreen() {
 
   const totalRevenue = receipts.reduce((s, r) => s + Number(r.total_amount), 0);
   const totalProfit = receipts.reduce((s, r) => s + Number(r.total_profit), 0);
+  const totalCost = totalRevenue - totalProfit;
 
   return (
     <div className="space-y-6">
       {/* KPI row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <Kpi label="Total revenue" value={formatMoney(totalRevenue)} />
+        <Kpi label="Total cost" value={formatMoney(totalCost)} />
         <Kpi label="Total profit" value={formatMoney(totalProfit)} accent />
         <Kpi
           label="Avg. margin"

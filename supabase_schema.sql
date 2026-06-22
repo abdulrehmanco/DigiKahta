@@ -262,3 +262,26 @@ begin
    where id = p_customer_id;
 end;
 $$;
+
+-- =============================================================================
+-- KHATA CHARGE RPC — manually adds udhaar (credit) to a customer, independent
+-- of a POS sale (e.g. opening balances, goods given on credit off-receipt).
+-- =============================================================================
+create or replace function public.record_khata_charge(
+  p_customer_id uuid,
+  p_amount      numeric
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.khata_transactions (customer_id, type, amount)
+  values (p_customer_id, 'charge', p_amount);
+
+  update public.customers
+     set current_balance = current_balance + p_amount
+   where id = p_customer_id;
+end;
+$$;

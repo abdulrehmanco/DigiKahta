@@ -10,6 +10,7 @@ import {
   MapPin,
   PackagePlus,
   Pencil,
+  Trash2,
   X,
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
@@ -61,6 +62,24 @@ export default function InventoryScreen() {
       );
     }
     setSavingId(null);
+  }
+
+  async function deleteProduct(product: Product) {
+    const ok = window.confirm(
+      `Delete "${product.name}"? This permanently removes it from your catalogue.`,
+    );
+    if (!ok) return;
+
+    setSavingId(product.id);
+    const { error } = await supabase.from('products').delete().eq('id', product.id);
+    setSavingId(null);
+
+    if (error) {
+      // Most likely a foreign-key constraint from past sales referencing it.
+      window.alert(`Could not delete: ${error.message}`);
+      return;
+    }
+    setProducts((prev) => prev.filter((p) => p.id !== product.id));
   }
 
   const filtered = useMemo(() => {
@@ -137,7 +156,7 @@ export default function InventoryScreen() {
                   <th className="px-4 py-3 font-medium">Expiry</th>
                   <th className="px-4 py-3 font-medium text-right">Cost / Sell</th>
                   <th className="px-4 py-3 font-medium text-center">Stock</th>
-                  <th className="px-4 py-3 font-medium text-center">Edit</th>
+                  <th className="px-4 py-3 font-medium text-center">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -238,14 +257,26 @@ export default function InventoryScreen() {
                       </td>
 
                       <td className="px-4 py-3">
-                        <div className="flex justify-center">
+                        <div className="flex justify-center gap-2">
                           <button
                             type="button"
                             onClick={() => setFormTarget(p)}
-                            className="h-8 w-8 rounded-md bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 flex items-center justify-center"
+                            disabled={savingId === p.id}
+                            className="h-8 w-8 rounded-md bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 disabled:opacity-40 flex items-center justify-center"
                             title="Edit product"
+                            aria-label={`Edit ${p.name}`}
                           >
                             <Pencil size={15} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteProduct(p)}
+                            disabled={savingId === p.id}
+                            className="h-8 w-8 rounded-md bg-red-50 text-red-500 hover:bg-red-100 disabled:opacity-40 flex items-center justify-center"
+                            title="Delete product"
+                            aria-label={`Delete ${p.name}`}
+                          >
+                            <Trash2 size={15} />
                           </button>
                         </div>
                       </td>

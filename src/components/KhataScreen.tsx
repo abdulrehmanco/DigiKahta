@@ -165,12 +165,12 @@ function CustomerDetail({ customer, onBack }: { customer: Customer; onBack: () =
     setLoading(false);
   }
 
-  async function recordPayment(e: FormEvent) {
-    e.preventDefault();
+  async function record(type: 'charge' | 'payment') {
     const amount = Number(payAmount);
     if (!amount || amount <= 0) return;
     setSaving(true);
-    const { error } = await supabase.rpc('record_khata_payment', {
+    const rpc = type === 'charge' ? 'record_khata_charge' : 'record_khata_payment';
+    const { error } = await supabase.rpc(rpc, {
       p_customer_id: customer.id,
       p_amount: amount,
     });
@@ -223,32 +223,46 @@ function CustomerDetail({ customer, onBack }: { customer: Customer; onBack: () =
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {/* Repayment */}
+        {/* Manual ledger entry — charge (udhaar) or payment */}
         <form
-          onSubmit={recordPayment}
+          onSubmit={(e) => e.preventDefault()}
           className="rounded-xl border border-slate-200 bg-white p-5 space-y-3"
         >
           <div className="flex items-center gap-2 text-slate-700 font-semibold">
-            <HandCoins size={18} className="text-emerald-600" /> Record a repayment
+            <HandCoins size={18} className="text-emerald-600" /> Record a ledger entry
           </div>
-          <div className="flex gap-2">
-            <input
-              type="number"
-              min={1}
-              step="0.01"
-              value={payAmount}
-              onChange={(e) => setPayAmount(e.target.value)}
-              placeholder="Amount received"
-              className="flex-1 rounded-lg border border-slate-300 px-3 py-2 focus:border-emerald-500 outline-none"
-            />
+          <input
+            type="number"
+            min={1}
+            step="0.01"
+            value={payAmount}
+            onChange={(e) => setPayAmount(e.target.value)}
+            placeholder="Amount (Rs)"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-emerald-500 outline-none"
+          />
+          <div className="grid grid-cols-2 gap-2">
             <button
-              type="submit"
+              type="button"
+              onClick={() => record('charge')}
               disabled={saving || !payAmount}
-              className="rounded-lg bg-emerald-600 text-white px-4 font-medium hover:bg-emerald-700 disabled:opacity-50"
+              className="flex items-center justify-center gap-1 rounded-lg bg-amber-500 text-white px-3 py-2 font-medium hover:bg-amber-600 disabled:opacity-50"
             >
-              {saving ? <Loader2 className="animate-spin" size={18} /> : 'Add'}
+              {saving ? <Loader2 className="animate-spin" size={16} /> : <ArrowUpRight size={16} />}
+              Add Udhaar
+            </button>
+            <button
+              type="button"
+              onClick={() => record('payment')}
+              disabled={saving || !payAmount}
+              className="flex items-center justify-center gap-1 rounded-lg bg-emerald-600 text-white px-3 py-2 font-medium hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {saving ? <Loader2 className="animate-spin" size={16} /> : <ArrowDownLeft size={16} />}
+              Payment
             </button>
           </div>
+          <p className="text-xs text-slate-400">
+            “Add Udhaar” increases the balance (credit given); “Payment” reduces it (cash received).
+          </p>
         </form>
 
         {/* WhatsApp reminder */}

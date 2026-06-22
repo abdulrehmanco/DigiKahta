@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, lazy, Suspense, type FormEvent } from 'react';
 import {
   ScanLine,
   Plus,
@@ -9,8 +9,11 @@ import {
   Loader2,
   UserSearch,
   X,
+  Camera,
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
+// Lazy-loaded: pulls in the heavy html5-qrcode library only when the camera opens.
+const BarcodeScanner = lazy(() => import('./BarcodeScanner'));
 import type { CartLine, Customer, PaymentMethod, Product } from '../types';
 import { formatMoney, formatPercent } from '../lib/format';
 
@@ -28,7 +31,10 @@ export default function POSScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+  // Latest products, readable from the scanner callback without stale closures.
+  const productsRef = useRef<Product[]>([]);
 
   // --- data loading ---------------------------------------------------------
   useEffect(() => {
@@ -42,7 +48,26 @@ export default function POSScreen() {
       .from('products')
       .select('*')
       .order('name', { ascending: true });
-    setProducts((data as Product[]) ?? []);
+    const rows = (data as Product[]) ?? [];
+    setProducts(rows);
+    productsRef.current = rows;
+  }
+
+  function flashToast(msg: string) {
+    setToast(msg);
+    setTimeout(() => setToast(null), 2500);
+  }
+
+  // Called by the camera scanner (and reusable for any barcode string).
+  function addByBarcode(rawCode: string) {
+    const code = rawCode.trim().toLowerCase();
+    const product = productsRef.current.find((p) => p.barcode?.toLowerCase() === code);
+    if (product) {
+      addToCart(product);
+      flashToast(`Added ${product.name}`);
+    } else {
+      flashToast(`No product for barcode ${rawCode}`);
+    }
   }
 
   async function loadCustomers() {
@@ -171,15 +196,26 @@ export default function POSScreen() {
       {/* ---- Left: search + cart ---- */}
       <div className="lg:col-span-2 flex flex-col gap-4">
         <form onSubmit={handleScan} className="relative">
-          <div className="flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2.5 shadow-sm focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-200">
-            <ScanLine className="text-emerald-600" size={22} />
-            <input
-              ref={searchRef}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Scan barcode or search product name…"
-              className="flex-1 outline-none text-slate-800"
-            />
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2.5 shadow-sm focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-200">
+              <ScanLine className="text-emerald-600" size={22} />
+              <input
+                ref={searchRef}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Scan barcode (USB) or search product name…"
+                className="flex-1 outline-none text-slate-800"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setScanning(true)}
+              className="flex items-center gap-2 rounded-xl bg-slate-900 text-white px-4 py-2.5 font-medium hover:bg-slate-800 shrink-0"
+              title="Scan with camera"
+            >
+              <Camera size={20} />
+              <span className="hidden sm:inline">Scan</span>
+            </button>
           </div>
           {matches.length > 0 && (
             <ul className="absolute z-20 mt-1 w-full rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden">
@@ -382,6 +418,12 @@ export default function POSScreen() {
         <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-xl bg-slate-900 text-white px-4 py-3 shadow-lg">
           <CheckCircle2 className="text-emerald-400" size={20} /> {toast}
         </div>
+      )}
+
+      {scanning && (
+        <Suspense fallback={null}>
+          <BarcodeScanner onDetect={addByBarcode} onClose={() => setScanning(false)} />
+        </Suspense>
       )}
     </div>
   );
