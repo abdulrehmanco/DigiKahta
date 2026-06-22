@@ -235,41 +235,47 @@ export default function POSScreen() {
       setTimeout(() => setToast(null), 3500);
     }
 
-    // Offline → queue it locally and apply optimistically. It syncs on reconnect.
-    if (!navigator.onLine) {
+    async function queueOffline() {
       enqueueSale(sale);
-      await loadProducts();
+      await loadProducts(); // reflect optimistic stock/balance from cache
       await loadCustomers();
       finishSale(`Saved offline — ${formatMoney(sale.total_amount)} · will sync`);
+    }
+
+    // Offline → queue it locally and apply optimistically. It syncs on reconnect.
+    if (!navigator.onLine) {
+      await queueOffline();
       return;
     }
 
     setSubmitting(true);
-    const { error: rpcError } = await supabase.rpc('process_sale', {
-      p_payment_method: sale.payment_method,
-      p_total_amount: sale.total_amount,
-      p_total_profit: sale.total_profit,
-      p_items: sale.items,
-      p_customer_id: sale.customer_id,
-    });
-    setSubmitting(false);
+    try {
+      // A dropped connection often makes supabase-js THROW ("Failed to fetch")
+      // rather than return an error — so we wrap and treat both as offline.
+      const { error: rpcError } = await supabase.rpc('process_sale', {
+        p_payment_method: sale.payment_method,
+        p_total_amount: sale.total_amount,
+        p_total_profit: sale.total_profit,
+        p_items: sale.items,
+        p_customer_id: sale.customer_id,
+      });
+      if (rpcError) throw rpcError;
 
-    if (rpcError) {
-      // Likely lost connectivity mid-request → queue instead of failing the sale.
-      if (!navigator.onLine || rpcError.message.toLowerCase().includes('fetch')) {
-        enqueueSale(sale);
-        await loadProducts();
-        await loadCustomers();
-        finishSale(`Saved offline — ${formatMoney(sale.total_amount)} · will sync`);
-        return;
+      await loadProducts(); // refresh stock counts
+      await loadCustomers(); // refresh balances
+      finishSale(`Sale complete — ${formatMoney(sale.total_amount)}`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      // Network/connectivity failure → queue offline instead of losing the sale.
+      if (!navigator.onLine || /failed to fetch|networkerror|fetch/i.test(msg)) {
+        await queueOffline();
+      } else {
+        // A genuine server rejection (e.g. inactive shop) — surface it.
+        setError(msg);
       }
-      setError(rpcError.message);
-      return;
+    } finally {
+      setSubmitting(false);
     }
-
-    await loadProducts(); // refresh stock counts
-    await loadCustomers(); // refresh balances
-    finishSale(`Sale complete — ${formatMoney(sale.total_amount)}`);
   }
 
   return (
