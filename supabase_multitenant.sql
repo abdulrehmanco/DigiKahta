@@ -100,9 +100,10 @@ begin
     v_shop := (v_meta ->> 'shop_id')::uuid;
     v_role := coalesce(v_meta ->> 'role', 'cashier');
   else
-    -- New shop owner: spin up their shop.
-    insert into public.shops (name)
-    values (coalesce(nullif(v_meta ->> 'shop_name', ''), split_part(new.email, '@', 1) || '''s Shop'))
+    -- New shop owner: spin up their shop, INACTIVE until you activate it
+    -- (pay-first gate). They can sign up but can't use the app until paid.
+    insert into public.shops (name, is_active)
+    values (coalesce(nullif(v_meta ->> 'shop_name', ''), split_part(new.email, '@', 1) || '''s Shop'), false)
     returning id into v_shop;
     v_role := 'owner';
   end if;
