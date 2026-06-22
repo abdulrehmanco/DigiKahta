@@ -173,6 +173,11 @@ create policy "profiles_select" on public.profiles
   for select to authenticated
   using (id = auth.uid() or (public.is_owner() and shop_id = public.current_shop_id()));
 
+-- The original khata policy was named "khata_all" (not "khata_transactions_all"),
+-- so the generic <table>_all drop below misses it. Drop it explicitly, or it
+-- survives as a permissive `using (true)` policy and leaks khata across shops.
+drop policy if exists "khata_all" on public.khata_transactions;
+
 -- Tenant tables: identical shop-scoped + active-subscription policy.
 do $$
 declare t text;
