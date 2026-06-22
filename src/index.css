@@ -1,1 +1,59 @@
 @import "tailwindcss";
+
+/* =========================================================================
+   Al-Raees Ledger — "breezy" design tokens
+   Light mode is hard-locked; primary = soft Mint, accent = soft Peach/Coral.
+   Custom palettes become utilities, e.g. bg-mint-200, text-peach-400.
+   ========================================================================= */
+@theme {
+  /* Primary — soft fresh Mint */
+  --color-mint-50: #f0fbf8;
+  --color-mint-100: #d8f3ec;
+  --color-mint-200: #a1ded6; /* reference primary */
+  --color-mint-300: #6ee7b7;
+  --color-mint-400: #34d399;
+  --color-mint-500: #10b981;
+  --color-mint-600: #059669;
+
+  /* Accent — soft Peach */
+  --color-peach-50: #fff7ed;
+  --color-peach-100: #ffedd5;
+  --color-peach-200: #fed7aa;
+  --color-peach-300: #fdba74; /* reference accent */
+  --color-peach-400: #fb923c;
+
+  /* Secondary accent — soft Coral */
+  --color-coral-200: #fecdd3;
+  --color-coral-300: #fda4af;
+
+  /* Calm sky for the "card" payment option */
+  --color-sky-soft: #bae6fd;
+}
+
+/* Lock the whole app to light mode regardless of OS preference. */
+:root {
+  color-scheme: light only;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: #f4f8f7;
+  color: #1e293b; /* slate-800 */
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Reusable breezy primitives */
+@layer components {
+  .breezy-card {
+    @apply rounded-2xl bg-white shadow-sm shadow-slate-200/60 border border-white/60;
+  }
+  .pill-btn {
+    @apply rounded-full px-4 py-2.5 text-sm font-semibold transition active:scale-[0.98];
+  }
+}

@@ -10,6 +10,7 @@ import {
   UserSearch,
   X,
   Camera,
+  PackageSearch,
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 // Lazy-loaded: pulls in the heavy html5-qrcode library only when the camera opens.
@@ -18,6 +19,25 @@ import type { CartLine, Customer, PaymentMethod, Product } from '../types';
 import { formatMoney, formatPercent } from '../lib/format';
 
 const PAYMENT_METHODS: PaymentMethod[] = ['cash', 'card', 'khata'];
+
+// Pastel styling per payment method — soft tints when idle, filled when selected.
+const PAYMENT_STYLE: Record<PaymentMethod, { label: string; idle: string; active: string }> = {
+  cash: {
+    label: 'Pay by Cash',
+    idle: 'bg-mint-100 text-mint-600 hover:bg-mint-200',
+    active: 'bg-mint-400 text-white shadow-sm',
+  },
+  card: {
+    label: 'Pay by Card',
+    idle: 'bg-sky-100 text-sky-600 hover:bg-sky-200',
+    active: 'bg-sky-400 text-white shadow-sm',
+  },
+  khata: {
+    label: 'Pay by Udhaar',
+    idle: 'bg-peach-100 text-peach-400 hover:bg-peach-200',
+    active: 'bg-peach-300 text-white shadow-sm',
+  },
+};
 
 export default function POSScreen() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -109,13 +129,17 @@ export default function POSScreen() {
   // Pressing Enter: if the query is an exact barcode, add it instantly (scanner-style).
   function handleScan(e: FormEvent) {
     e.preventDefault();
-    const q = query.trim().toLowerCase();
+    const raw = query.trim();
+    const q = raw.toLowerCase();
     if (!q) return;
     const exact = products.find((p) => p.barcode?.toLowerCase() === q);
     if (exact) {
       addToCart(exact);
     } else if (matches.length === 1) {
       addToCart(matches[0]);
+    } else if (matches.length === 0) {
+      // No hit at all — tell the cashier the product doesn't exist.
+      flashToast(`Product not found: “${raw}”`);
     }
   }
 
@@ -197,20 +221,20 @@ export default function POSScreen() {
       <div className="lg:col-span-2 flex flex-col gap-4">
         <form onSubmit={handleScan} className="relative">
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2.5 shadow-sm focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-200">
-              <ScanLine className="text-emerald-600" size={22} />
+            <div className="flex items-center gap-2 flex-1 rounded-full bg-white/90 backdrop-blur border border-white px-4 py-3 shadow-sm focus-within:ring-2 focus-within:ring-mint-200">
+              <ScanLine className="text-mint-600" size={22} />
               <input
                 ref={searchRef}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Scan barcode (USB) or search product name…"
-                className="flex-1 outline-none text-slate-800"
+                className="flex-1 bg-transparent outline-none text-slate-800 placeholder:text-slate-400"
               />
             </div>
             <button
               type="button"
               onClick={() => setScanning(true)}
-              className="flex items-center gap-2 rounded-xl bg-slate-900 text-white px-4 py-2.5 font-medium hover:bg-slate-800 shrink-0"
+              className="flex items-center gap-2 rounded-full bg-mint-500 text-white px-5 py-3 font-semibold hover:bg-mint-600 shrink-0 shadow-sm"
               title="Scan with camera"
             >
               <Camera size={20} />
@@ -218,13 +242,13 @@ export default function POSScreen() {
             </button>
           </div>
           {matches.length > 0 && (
-            <ul className="absolute z-20 mt-1 w-full rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden">
+            <ul className="absolute z-20 mt-2 w-full rounded-2xl border border-white bg-white shadow-lg overflow-hidden">
               {matches.map((p) => (
                 <li key={p.id}>
                   <button
                     type="button"
                     onClick={() => addToCart(p)}
-                    className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-emerald-50 text-left"
+                    className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-mint-50 text-left"
                   >
                     <span>
                       <span className="font-medium text-slate-800">{p.name}</span>
@@ -238,16 +262,38 @@ export default function POSScreen() {
               ))}
             </ul>
           )}
+          {query.trim() && matches.length === 0 && (
+            <div className="absolute z-20 mt-2 w-full rounded-2xl border border-white bg-white shadow-lg px-4 py-4 flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-peach-100 flex items-center justify-center shrink-0">
+                <PackageSearch className="text-peach-400" size={20} />
+              </div>
+              <div>
+                <p className="font-semibold text-slate-700 text-sm">Product does not exist</p>
+                <p className="text-xs text-slate-400">
+                  No item matches “{query.trim()}”. Check the barcode/name, or add it in Inventory.
+                </p>
+              </div>
+            </div>
+          )}
         </form>
 
-        <div className="flex-1 rounded-xl border border-slate-200 bg-white overflow-hidden flex flex-col">
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-100 text-slate-700 font-semibold">
-            <ShoppingCart size={18} /> Cart ({cart.length})
+        <div className="flex-1 breezy-card overflow-hidden flex flex-col">
+          <div className="flex items-center justify-between px-5 py-4">
+            <h3 className="flex items-center gap-2 text-slate-800 font-bold">
+              <ShoppingCart size={18} className="text-mint-600" /> Active Sales Cart
+            </h3>
+            <span className="text-xs font-medium text-slate-400">{cart.length} item(s)</span>
           </div>
 
           {cart.length === 0 ? (
-            <div className="flex-1 flex items-center justify-center text-slate-400 text-sm py-16">
-              Scan or search to add items.
+            <div className="flex-1 flex flex-col items-center justify-center text-center text-slate-400 text-sm py-16 px-6">
+              <div className="h-12 w-12 rounded-2xl bg-mint-100 flex items-center justify-center mb-3">
+                <ScanLine className="text-mint-600" size={22} />
+              </div>
+              <p className="font-medium text-slate-500">Ready to Scan</p>
+              <p className="text-xs mt-1">
+                Use your camera or hardware scanner. Press &lsquo;Enter&rsquo; after scanning.
+              </p>
             </div>
           ) : (
             <ul className="divide-y divide-slate-100 overflow-y-auto">
@@ -260,10 +306,11 @@ export default function POSScreen() {
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1.5">
                     <button
+                      type="button"
                       onClick={() => setQty(line.product.id, line.quantity - 1)}
-                      className="h-7 w-7 rounded-md bg-slate-100 hover:bg-slate-200 flex items-center justify-center"
+                      className="h-8 w-8 rounded-full bg-mint-100 text-mint-600 hover:bg-mint-200 flex items-center justify-center"
                     >
                       <Minus size={14} />
                     </button>
@@ -274,11 +321,12 @@ export default function POSScreen() {
                       onChange={(e) =>
                         setQty(line.product.id, Math.max(1, Number(e.target.value) || 1))
                       }
-                      className="w-12 text-center rounded-md border border-slate-200 py-1"
+                      className="w-11 text-center rounded-lg border border-slate-200 py-1"
                     />
                     <button
+                      type="button"
                       onClick={() => setQty(line.product.id, line.quantity + 1)}
-                      className="h-7 w-7 rounded-md bg-slate-100 hover:bg-slate-200 flex items-center justify-center"
+                      className="h-8 w-8 rounded-full bg-peach-200 text-peach-400 hover:bg-peach-300 flex items-center justify-center"
                     >
                       <Plus size={14} />
                     </button>
@@ -303,23 +351,26 @@ export default function POSScreen() {
 
       {/* ---- Right: payment + summary ---- */}
       <div className="flex flex-col gap-4">
-        <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">
-          <h3 className="font-semibold text-slate-700">Payment</h3>
+        <div className="breezy-card p-5 space-y-4">
+          <h3 className="font-bold text-slate-800">POS Controls &amp; Payment</h3>
 
-          <div className="grid grid-cols-3 gap-2">
-            {PAYMENT_METHODS.map((m) => (
-              <button
-                key={m}
-                onClick={() => setPayment(m)}
-                className={`rounded-lg py-2 text-sm font-medium capitalize border transition ${
-                  payment === m
-                    ? 'bg-emerald-600 text-white border-emerald-600'
-                    : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-300'
-                }`}
-              >
-                {m}
-              </button>
-            ))}
+          <div className="grid grid-cols-2 gap-2.5">
+            {PAYMENT_METHODS.map((m) => {
+              const cfg = PAYMENT_STYLE[m];
+              const selected = payment === m;
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setPayment(m)}
+                  className={`pill-btn ${m === 'khata' ? 'col-span-2' : ''} ${
+                    selected ? cfg.active : cfg.idle
+                  }`}
+                >
+                  {cfg.label}
+                </button>
+              );
+            })}
           </div>
 
           {payment === 'khata' && (
@@ -328,7 +379,7 @@ export default function POSScreen() {
                 Customer (required)
               </label>
               {customer ? (
-                <div className="flex items-center justify-between rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2">
+                <div className="flex items-center justify-between rounded-xl border border-mint-200 bg-mint-50 px-3 py-2">
                   <div>
                     <p className="font-medium text-slate-800">{customer.name}</p>
                     <p className="text-xs text-slate-500">
@@ -347,7 +398,7 @@ export default function POSScreen() {
                 </div>
               ) : (
                 <>
-                  <div className="flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 focus-within:border-emerald-500">
+                  <div className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 focus-within:ring-2 focus-within:ring-mint-200">
                     <UserSearch size={18} className="text-slate-400" />
                     <input
                       value={customerQuery}
@@ -361,15 +412,16 @@ export default function POSScreen() {
                     />
                   </div>
                   {showCustomerList && filteredCustomers.length > 0 && (
-                    <ul className="absolute z-20 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg overflow-hidden">
+                    <ul className="absolute z-20 mt-1 w-full rounded-xl border border-white bg-white shadow-lg overflow-hidden">
                       {filteredCustomers.map((c) => (
                         <li key={c.id}>
                           <button
+                            type="button"
                             onClick={() => {
                               setCustomer(c);
                               setShowCustomerList(false);
                             }}
-                            className="w-full flex items-center justify-between px-3 py-2 hover:bg-emerald-50 text-left text-sm"
+                            className="w-full flex items-center justify-between px-3 py-2 hover:bg-mint-50 text-left text-sm"
                           >
                             <span className="font-medium text-slate-700">{c.name}</span>
                             <span className="text-xs text-slate-400">{c.phone}</span>
@@ -384,7 +436,7 @@ export default function POSScreen() {
           )}
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-2 text-sm">
+        <div className="breezy-card p-5 space-y-2 text-sm">
           <Row label="Subtotal" value={formatMoney(totals.amount)} />
           <Row label="Cost of goods" value={formatMoney(totals.cost)} muted />
           <Row
@@ -399,15 +451,16 @@ export default function POSScreen() {
         </div>
 
         {error && (
-          <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          <p className="text-sm text-rose-500 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2">
             {error}
           </p>
         )}
 
         <button
+          type="button"
           onClick={checkout}
           disabled={cart.length === 0 || submitting}
-          className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 text-white font-semibold py-3.5 hover:bg-emerald-700 disabled:opacity-50 transition"
+          className="flex items-center justify-center gap-2 rounded-full bg-peach-300 text-white font-semibold py-3.5 hover:bg-peach-400 disabled:opacity-50 transition shadow-sm active:scale-[0.98]"
         >
           {submitting ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle2 size={20} />}
           {submitting ? 'Processing…' : `Charge ${formatMoney(totals.amount)}`}

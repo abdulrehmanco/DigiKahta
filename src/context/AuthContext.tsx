@@ -8,14 +8,17 @@ import {
 } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../supabaseClient';
-import type { Profile, Role } from '../types';
+import type { Profile, Role, Shop } from '../types';
 
 interface AuthContextValue {
   session: Session | null;
   profile: Profile | null;
+  shop: Shop | null;
   role: Role | null;
   isOwner: boolean;
   isCashier: boolean;
+  /** True only when the user has a shop AND its subscription is active. */
+  shopActive: boolean;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
@@ -26,7 +29,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 async function fetchProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, email, role')
+    .select('id, email, role, shop_id')
     .eq('id', userId)
     .single();
 
@@ -37,10 +40,38 @@ async function fetchProfile(userId: string): Promise<Profile | null> {
   return data as Profile;
 }
 
+async function fetchShop(shopId: string): Promise<Shop | null> {
+  const { data, error } = await supabase
+    .from('shops')
+    .select('id, name, is_active, subscription_until, created_at')
+    .eq('id', shopId)
+    .single();
+
+  if (error) {
+    console.error('Failed to load shop:', error.message);
+    return null;
+  }
+  return data as Shop;
+}
+
+function isShopActive(shop: Shop | null): boolean {
+  if (!shop || !shop.is_active) return false;
+  if (!shop.subscription_until) return true;
+  return shop.subscription_until >= new Date().toISOString().slice(0, 10);
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [shop, setShop] = useState<Shop | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Load the profile and (if it has one) its shop.
+  async function hydrate(userId: string) {
+    const prof = await fetchProfile(userId);
+    setProfile(prof);
+    setShop(prof?.shop_id ? await fetchShop(prof.shop_id) : null);
+  }
 
   useEffect(() => {
     let active = true;
@@ -49,9 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(async ({ data }) => {
       if (!active) return;
       setSession(data.session);
-      if (data.session?.user) {
-        setProfile(await fetchProfile(data.session.user.id));
-      }
+      if (data.session?.user) await hydrate(data.session.user.id);
       setLoading(false);
     });
 
@@ -60,9 +89,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!active) return;
       setSession(newSession);
       if (newSession?.user) {
-        setProfile(await fetchProfile(newSession.user.id));
+        await hydrate(newSession.user.id);
       } else {
         setProfile(null);
+        setShop(null);
       }
     });
 
@@ -80,6 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     await supabase.auth.signOut();
     setProfile(null);
+    setShop(null);
     setSession(null);
   };
 
@@ -87,14 +118,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       session,
       profile,
+      shop,
       role: profile?.role ?? null,
       isOwner: profile?.role === 'owner',
       isCashier: profile?.role === 'cashier',
+      shopActive: !!profile?.shop_id && isShopActive(shop),
       loading,
       signIn,
       signOut,
     }),
-    [session, profile, loading],
+    [session, profile, shop, loading],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

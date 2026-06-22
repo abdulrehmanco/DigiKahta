@@ -9,6 +9,7 @@ import {
   ArrowUpRight,
   HandCoins,
   UserPlus,
+  UserSearch,
   X,
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
@@ -60,43 +61,45 @@ export default function KhataScreen() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-          <div className="text-xs text-amber-700">Total outstanding (udhaar)</div>
-          <div className="text-2xl font-bold text-amber-800">{formatMoney(totalOutstanding)}</div>
+        <div className="breezy-card px-5 py-4">
+          <div className="text-xs text-slate-400">Total outstanding (udhaar)</div>
+          <div className="text-2xl font-bold text-peach-400">{formatMoney(totalOutstanding)}</div>
         </div>
         <button
+          type="button"
           onClick={() => setShowAdd(true)}
-          className="flex items-center gap-2 rounded-lg bg-emerald-600 text-white px-4 py-2.5 font-medium hover:bg-emerald-700"
+          className="flex items-center gap-2 rounded-full bg-mint-500 text-white px-5 py-3 font-semibold hover:bg-mint-600 shadow-sm active:scale-[0.98]"
         >
           <UserPlus size={18} /> New customer
         </button>
       </div>
 
-      <div className="flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2.5 max-w-md focus-within:border-emerald-500">
+      <div className="flex items-center gap-2 rounded-full bg-white/90 backdrop-blur border border-white px-4 py-3 max-w-md shadow-sm focus-within:ring-2 focus-within:ring-mint-200">
         <Search size={18} className="text-slate-400" />
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search customers by name or phone…"
-          className="flex-1 outline-none text-slate-800"
+          className="flex-1 bg-transparent outline-none text-slate-800 placeholder:text-slate-400"
         />
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+      <div className="breezy-card overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center py-20 text-slate-400">
             <Loader2 className="animate-spin mr-2" size={20} /> Loading customers…
           </div>
         ) : (
-          <ul className="divide-y divide-slate-100">
+          <ul className="divide-y divide-slate-50">
             {filtered.map((c) => (
               <li key={c.id}>
                 <button
+                  type="button"
                   onClick={() => setSelected(c)}
-                  className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-slate-50 text-left"
+                  className="w-full flex items-center justify-between px-5 py-4 hover:bg-mint-50/60 text-left"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center font-semibold text-slate-500">
+                    <div className="h-10 w-10 rounded-full bg-mint-200 flex items-center justify-center font-semibold text-mint-600">
                       {c.name.charAt(0).toUpperCase()}
                     </div>
                     <div>
@@ -108,7 +111,7 @@ export default function KhataScreen() {
                   </div>
                   <div
                     className={`font-semibold ${
-                      Number(c.current_balance) > 0 ? 'text-amber-600' : 'text-slate-400'
+                      Number(c.current_balance) > 0 ? 'text-peach-400' : 'text-slate-400'
                     }`}
                   >
                     {formatMoney(c.current_balance)}
@@ -117,7 +120,21 @@ export default function KhataScreen() {
               </li>
             ))}
             {filtered.length === 0 && (
-              <li className="px-4 py-12 text-center text-slate-400">No customers found.</li>
+              <li className="py-14">
+                <div className="flex flex-col items-center text-center">
+                  <div className="h-14 w-14 rounded-2xl bg-peach-100 flex items-center justify-center mb-3">
+                    <UserSearch className="text-peach-400" size={26} />
+                  </div>
+                  <p className="font-semibold text-slate-600">
+                    {customers.length === 0 ? 'No customers yet' : 'Customer not found'}
+                  </p>
+                  <p className="text-sm text-slate-400 mt-1">
+                    {customers.length === 0
+                      ? 'Click “New customer” to create your first profile.'
+                      : `Nobody matches “${query.trim()}”. Try another name or phone.`}
+                  </p>
+                </div>
+              </li>
             )}
           </ul>
         )}
@@ -194,15 +211,16 @@ function CustomerDetail({ customer, onBack }: { customer: Customer; onBack: () =
   return (
     <div className="space-y-5">
       <button
+        type="button"
         onClick={onBack}
         className="flex items-center gap-1 text-slate-500 hover:text-slate-700 text-sm"
       >
         <ArrowLeft size={16} /> Back to customers
       </button>
 
-      <div className="rounded-xl border border-slate-200 bg-white p-5 flex flex-wrap items-center justify-between gap-4">
+      <div className="breezy-card p-5 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div className="h-14 w-14 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xl font-bold">
+          <div className="h-14 w-14 rounded-full bg-mint-200 text-mint-600 flex items-center justify-center text-xl font-bold">
             {customer.name.charAt(0).toUpperCase()}
           </div>
           <div>
@@ -215,7 +233,7 @@ function CustomerDetail({ customer, onBack }: { customer: Customer; onBack: () =
         <div className="text-right">
           <div className="text-xs text-slate-400">Current balance</div>
           <div
-            className={`text-3xl font-bold ${balance > 0 ? 'text-amber-600' : 'text-emerald-600'}`}
+            className={`text-3xl font-bold ${balance > 0 ? 'text-peach-400' : 'text-mint-600'}`}
           >
             {formatMoney(balance)}
           </div>
@@ -226,10 +244,10 @@ function CustomerDetail({ customer, onBack }: { customer: Customer; onBack: () =
         {/* Manual ledger entry — charge (udhaar) or payment */}
         <form
           onSubmit={(e) => e.preventDefault()}
-          className="rounded-xl border border-slate-200 bg-white p-5 space-y-3"
+          className="breezy-card p-5 space-y-3"
         >
-          <div className="flex items-center gap-2 text-slate-700 font-semibold">
-            <HandCoins size={18} className="text-emerald-600" /> Record a ledger entry
+          <div className="flex items-center gap-2 text-slate-800 font-bold">
+            <HandCoins size={18} className="text-mint-600" /> Record a ledger entry
           </div>
           <input
             type="number"
@@ -238,14 +256,14 @@ function CustomerDetail({ customer, onBack }: { customer: Customer; onBack: () =
             value={payAmount}
             onChange={(e) => setPayAmount(e.target.value)}
             placeholder="Amount (Rs)"
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-emerald-500 outline-none"
+            className="w-full rounded-xl border border-slate-200 px-3 py-2.5 focus:ring-2 focus:ring-mint-200 outline-none"
           />
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
               onClick={() => record('charge')}
               disabled={saving || !payAmount}
-              className="flex items-center justify-center gap-1 rounded-lg bg-amber-500 text-white px-3 py-2 font-medium hover:bg-amber-600 disabled:opacity-50"
+              className="flex items-center justify-center gap-1 rounded-full bg-peach-300 text-white px-3 py-2.5 font-semibold hover:bg-peach-400 disabled:opacity-50 active:scale-[0.98]"
             >
               {saving ? <Loader2 className="animate-spin" size={16} /> : <ArrowUpRight size={16} />}
               Add Udhaar
@@ -254,7 +272,7 @@ function CustomerDetail({ customer, onBack }: { customer: Customer; onBack: () =
               type="button"
               onClick={() => record('payment')}
               disabled={saving || !payAmount}
-              className="flex items-center justify-center gap-1 rounded-lg bg-emerald-600 text-white px-3 py-2 font-medium hover:bg-emerald-700 disabled:opacity-50"
+              className="flex items-center justify-center gap-1 rounded-full bg-mint-500 text-white px-3 py-2.5 font-semibold hover:bg-mint-600 disabled:opacity-50 active:scale-[0.98]"
             >
               {saving ? <Loader2 className="animate-spin" size={16} /> : <ArrowDownLeft size={16} />}
               Payment
@@ -266,8 +284,8 @@ function CustomerDetail({ customer, onBack }: { customer: Customer; onBack: () =
         </form>
 
         {/* WhatsApp reminder */}
-        <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-3 flex flex-col">
-          <div className="flex items-center gap-2 text-slate-700 font-semibold">
+        <div className="breezy-card p-5 space-y-3 flex flex-col">
+          <div className="flex items-center gap-2 text-slate-800 font-bold">
             <MessageCircle size={18} className="text-green-600" /> Payment reminder
           </div>
           <p className="text-sm text-slate-500 flex-1">
@@ -277,9 +295,9 @@ function CustomerDetail({ customer, onBack }: { customer: Customer; onBack: () =
             href={whatsappHref}
             target="_blank"
             rel="noreferrer"
-            className={`flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 font-medium text-white transition ${
+            className={`flex items-center justify-center gap-2 rounded-full px-4 py-3 font-semibold text-white transition active:scale-[0.98] ${
               balance > 0 && customer.phone
-                ? 'bg-green-600 hover:bg-green-700'
+                ? 'bg-green-500 hover:bg-green-600'
                 : 'bg-slate-300 pointer-events-none'
             }`}
           >
@@ -289,10 +307,8 @@ function CustomerDetail({ customer, onBack }: { customer: Customer; onBack: () =
       </div>
 
       {/* Audit trail */}
-      <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-        <div className="px-4 py-3 border-b border-slate-100 font-semibold text-slate-700">
-          Transaction history
-        </div>
+      <div className="breezy-card overflow-hidden">
+        <div className="px-5 py-4 font-bold text-slate-800">Transaction history</div>
         {loading ? (
           <div className="flex items-center justify-center py-16 text-slate-400">
             <Loader2 className="animate-spin mr-2" size={20} /> Loading ledger…
@@ -300,15 +316,15 @@ function CustomerDetail({ customer, onBack }: { customer: Customer; onBack: () =
         ) : txns.length === 0 ? (
           <div className="py-12 text-center text-slate-400">No transactions yet.</div>
         ) : (
-          <ul className="divide-y divide-slate-100">
+          <ul className="divide-y divide-slate-50">
             {txns.map((t) => {
               const isCharge = t.type === 'charge';
               return (
-                <li key={t.id} className="flex items-center justify-between px-4 py-3">
+                <li key={t.id} className="flex items-center justify-between px-5 py-3.5">
                   <div className="flex items-center gap-3">
                     <div
                       className={`h-9 w-9 rounded-full flex items-center justify-center ${
-                        isCharge ? 'bg-amber-100 text-amber-600' : 'bg-emerald-100 text-emerald-600'
+                        isCharge ? 'bg-peach-100 text-peach-400' : 'bg-mint-100 text-mint-600'
                       }`}
                     >
                       {isCharge ? <ArrowUpRight size={18} /> : <ArrowDownLeft size={18} />}
@@ -323,7 +339,7 @@ function CustomerDetail({ customer, onBack }: { customer: Customer; onBack: () =
                     </div>
                   </div>
                   <div
-                    className={`font-semibold ${isCharge ? 'text-amber-600' : 'text-emerald-600'}`}
+                    className={`font-semibold ${isCharge ? 'text-peach-400' : 'text-mint-600'}`}
                   >
                     {isCharge ? '+' : '−'}
                     {formatMoney(Number(t.amount))}
@@ -369,11 +385,11 @@ function AddCustomerModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4">
+    <div className="fixed inset-0 z-50 bg-slate-900/30 backdrop-blur-sm flex items-center justify-center px-4">
       <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-bold text-slate-800">New customer</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600">
             <X size={20} />
           </button>
         </div>
@@ -383,19 +399,19 @@ function AddCustomerModal({
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Customer name"
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-emerald-500 outline-none"
+            className="w-full rounded-xl border border-slate-200 px-3 py-2.5 focus:ring-2 focus:ring-mint-200 outline-none"
           />
           <input
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             placeholder="Phone (e.g. 923001234567)"
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-emerald-500 outline-none"
+            className="w-full rounded-xl border border-slate-200 px-3 py-2.5 focus:ring-2 focus:ring-mint-200 outline-none"
           />
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-sm text-rose-500">{error}</p>}
           <button
             type="submit"
             disabled={saving || !name.trim()}
-            className="w-full rounded-lg bg-emerald-600 text-white py-2.5 font-medium hover:bg-emerald-700 disabled:opacity-50"
+            className="w-full rounded-full bg-mint-500 text-white py-2.5 font-semibold hover:bg-mint-600 disabled:opacity-50 active:scale-[0.98]"
           >
             {saving ? 'Saving…' : 'Add customer'}
           </button>

@@ -9,6 +9,7 @@ import {
   Loader2,
   MapPin,
   PackagePlus,
+  PackageSearch,
   Pencil,
   Trash2,
   X,
@@ -122,26 +123,26 @@ export default function InventoryScreen() {
 
       {/* Search + add */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2.5 flex-1 min-w-[240px] max-w-md focus-within:border-emerald-500">
+        <div className="flex items-center gap-2 rounded-full bg-white/90 backdrop-blur border border-white px-4 py-3 flex-1 min-w-[240px] max-w-md shadow-sm focus-within:ring-2 focus-within:ring-mint-200">
           <Search size={18} className="text-slate-400" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search by name, category, barcode or shelf…"
-            className="flex-1 outline-none text-slate-800"
+            className="flex-1 bg-transparent outline-none text-slate-800 placeholder:text-slate-400"
           />
         </div>
         <button
           type="button"
           onClick={() => setFormTarget('new')}
-          className="flex items-center gap-2 rounded-lg bg-emerald-600 text-white px-4 py-2.5 font-medium hover:bg-emerald-700"
+          className="flex items-center gap-2 rounded-full bg-mint-500 text-white px-5 py-3 font-semibold hover:bg-mint-600 shadow-sm active:scale-[0.98]"
         >
           <PackagePlus size={18} /> New product
         </button>
       </div>
 
       {/* Table */}
-      <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+      <div className="breezy-card overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center py-20 text-slate-400">
             <Loader2 className="animate-spin mr-2" size={20} /> Loading inventory…
@@ -149,7 +150,7 @@ export default function InventoryScreen() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-slate-500 text-left">
+              <thead className="bg-mint-50/70 text-slate-500 text-left">
                 <tr>
                   <th className="px-4 py-3 font-medium">Product</th>
                   <th className="px-4 py-3 font-medium">Shelf</th>
@@ -170,7 +171,7 @@ export default function InventoryScreen() {
                   return (
                     <tr
                       key={p.id}
-                      className={isOut ? 'bg-red-50' : isLow ? 'bg-amber-50' : 'hover:bg-slate-50'}
+                      className={isOut ? 'bg-rose-50/70' : isLow ? 'bg-amber-50/70' : 'hover:bg-mint-50/50'}
                     >
                       <td className="px-4 py-3">
                         <div className="font-medium text-slate-800 flex items-center gap-2">
@@ -181,7 +182,7 @@ export default function InventoryScreen() {
                             </span>
                           )}
                           {isOut && (
-                            <span className="inline-flex items-center gap-1 text-[11px] text-red-700 bg-red-100 rounded-full px-2 py-0.5">
+                            <span className="inline-flex items-center gap-1 text-[11px] text-rose-600 bg-rose-100 rounded-full px-2 py-0.5">
                               <PackageX size={11} /> Out
                             </span>
                           )}
@@ -207,7 +208,7 @@ export default function InventoryScreen() {
                           <span
                             className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
                               expired
-                                ? 'bg-red-100 text-red-700'
+                                ? 'bg-rose-100 text-rose-600'
                                 : expiringSoon
                                   ? 'bg-violet-100 text-violet-700'
                                   : 'text-slate-500'
@@ -231,25 +232,27 @@ export default function InventoryScreen() {
                       </td>
 
                       <td className="px-4 py-3">
-                        <div className="flex items-center justify-center gap-2">
+                        <div className="flex items-center justify-center gap-1.5">
                           <button
+                            type="button"
                             onClick={() => adjustStock(p, -1)}
                             disabled={savingId === p.id || p.stock_quantity === 0}
-                            className="h-8 w-8 rounded-md bg-slate-100 hover:bg-slate-200 disabled:opacity-40 flex items-center justify-center"
+                            className="h-8 w-8 rounded-full bg-mint-100 text-mint-600 hover:bg-mint-200 disabled:opacity-40 flex items-center justify-center"
                           >
                             <Minus size={15} />
                           </button>
                           <span
                             className={`w-10 text-center font-semibold ${
-                              isOut ? 'text-red-600' : isLow ? 'text-amber-600' : 'text-slate-800'
+                              isOut ? 'text-rose-500' : isLow ? 'text-amber-600' : 'text-slate-800'
                             }`}
                           >
                             {p.stock_quantity}
                           </span>
                           <button
+                            type="button"
                             onClick={() => adjustStock(p, 1)}
                             disabled={savingId === p.id}
-                            className="h-8 w-8 rounded-md bg-emerald-100 text-emerald-700 hover:bg-emerald-200 disabled:opacity-40 flex items-center justify-center"
+                            className="h-8 w-8 rounded-full bg-peach-200 text-peach-400 hover:bg-peach-300 disabled:opacity-40 flex items-center justify-center"
                           >
                             <Plus size={15} />
                           </button>
@@ -262,7 +265,7 @@ export default function InventoryScreen() {
                             type="button"
                             onClick={() => setFormTarget(p)}
                             disabled={savingId === p.id}
-                            className="h-8 w-8 rounded-md bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 disabled:opacity-40 flex items-center justify-center"
+                            className="h-8 w-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 disabled:opacity-40 flex items-center justify-center"
                             title="Edit product"
                             aria-label={`Edit ${p.name}`}
                           >
@@ -272,7 +275,7 @@ export default function InventoryScreen() {
                             type="button"
                             onClick={() => deleteProduct(p)}
                             disabled={savingId === p.id}
-                            className="h-8 w-8 rounded-md bg-red-50 text-red-500 hover:bg-red-100 disabled:opacity-40 flex items-center justify-center"
+                            className="h-8 w-8 rounded-full bg-rose-50 text-rose-500 hover:bg-rose-100 disabled:opacity-40 flex items-center justify-center"
                             title="Delete product"
                             aria-label={`Delete ${p.name}`}
                           >
@@ -285,10 +288,37 @@ export default function InventoryScreen() {
                 })}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-4 py-12 text-center text-slate-400">
-                      {products.length === 0
-                        ? 'No products yet — click “New product” to add your first item.'
-                        : `No products match “${query}”.`}
+                    <td colSpan={6} className="px-4 py-14">
+                      <div className="flex flex-col items-center text-center">
+                        <div className="h-14 w-14 rounded-2xl bg-peach-100 flex items-center justify-center mb-3">
+                          <PackageSearch className="text-peach-400" size={26} />
+                        </div>
+                        {products.length === 0 ? (
+                          <>
+                            <p className="font-semibold text-slate-600">No products yet</p>
+                            <p className="text-sm text-slate-400 mt-1">
+                              Click “New product” to add your first item.
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="font-semibold text-slate-600">
+                              Product does not exist
+                            </p>
+                            <p className="text-sm text-slate-400 mt-1">
+                              Nothing matches “{query}”. Try another name, barcode or shelf —
+                              or add it as a new product.
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => setFormTarget('new')}
+                              className="mt-4 inline-flex items-center gap-2 rounded-full bg-mint-500 text-white px-4 py-2 text-sm font-semibold hover:bg-mint-600"
+                            >
+                              <PackagePlus size={16} /> Add “{query.trim()}”
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 )}
@@ -375,7 +405,7 @@ function ProductFormModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4 py-6 overflow-y-auto">
+    <div className="fixed inset-0 z-50 bg-slate-900/30 backdrop-blur-sm flex items-center justify-center px-4 py-6 overflow-y-auto">
       <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl my-auto">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-bold text-slate-800">{isEdit ? 'Edit product' : 'New product'}</h3>
@@ -480,20 +510,20 @@ function ProductFormModal({
             />
           </Field>
 
-          {error && <p className="sm:col-span-2 text-sm text-red-600">{error}</p>}
+          {error && <p className="sm:col-span-2 text-sm text-rose-500">{error}</p>}
 
           <div className="sm:col-span-2 flex gap-2 pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 rounded-lg border border-slate-300 py-2.5 font-medium text-slate-600 hover:bg-slate-50"
+              className="flex-1 rounded-full border border-slate-200 py-2.5 font-medium text-slate-600 hover:bg-slate-50"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={saving || !form.name.trim()}
-              className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-emerald-600 text-white py-2.5 font-medium hover:bg-emerald-700 disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-2 rounded-full bg-mint-500 text-white py-2.5 font-semibold hover:bg-mint-600 disabled:opacity-50 active:scale-[0.98]"
             >
               {saving && <Loader2 className="animate-spin" size={18} />}
               {isEdit ? 'Save changes' : 'Add product'}
@@ -506,7 +536,7 @@ function ProductFormModal({
 }
 
 const inputCls =
-  'w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none';
+  'w-full rounded-xl border border-slate-200 px-3 py-2.5 focus:ring-2 focus:ring-mint-200 outline-none';
 
 function Field({
   label,
@@ -541,16 +571,18 @@ function StatChip({
   tone: 'amber' | 'red' | 'violet';
 }) {
   const tones = {
-    amber: 'bg-amber-50 text-amber-700 border-amber-200',
-    red: 'bg-red-50 text-red-700 border-red-200',
-    violet: 'bg-violet-50 text-violet-700 border-violet-200',
+    amber: 'text-amber-600 bg-amber-100',
+    red: 'text-rose-500 bg-rose-100',
+    violet: 'text-violet-600 bg-violet-100',
   } as const;
   return (
-    <div className={`rounded-xl border px-4 py-3 flex items-center gap-3 ${tones[tone]}`}>
-      <div className="opacity-80">{icon}</div>
+    <div className="breezy-card px-4 py-3.5 flex items-center gap-3">
+      <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${tones[tone]}`}>
+        {icon}
+      </div>
       <div>
-        <div className="text-2xl font-bold leading-none">{value}</div>
-        <div className="text-xs opacity-80 mt-1">{label}</div>
+        <div className="text-2xl font-bold leading-none text-slate-800">{value}</div>
+        <div className="text-xs text-slate-400 mt-1">{label}</div>
       </div>
     </div>
   );

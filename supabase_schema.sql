@@ -1,5 +1,5 @@
 -- =============================================================================
--- DigiKhata — Shop & Inventory Analytics PWA
+-- Mizan Al-Raees — Shop & Inventory Analytics PWA
 -- PostgreSQL migration for Supabase. Run this in the Supabase SQL Editor.
 -- =============================================================================
 

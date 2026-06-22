@@ -8,6 +8,15 @@ export interface Profile {
   id: string;
   email: string;
   role: Role;
+  shop_id: string | null;
+}
+
+export interface Shop {
+  id: string;
+  name: string;
+  is_active: boolean;
+  subscription_until: string | null;
+  created_at: string;
 }
 
 export interface Product {
