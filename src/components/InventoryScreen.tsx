@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, lazy, Suspense, type FormEvent } from 'react';
 import {
   Plus,
   Minus,
@@ -13,12 +13,22 @@ import {
   Pencil,
   Trash2,
   X,
+  Camera,
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import type { Product } from '../types';
 import { formatMoney, daysUntil } from '../lib/format';
+import { lookupBarcodeGlobal } from '../lib/barcodeLookup';
+
+const BarcodeScanner = lazy(() => import('./BarcodeScanner'));
 
 const EXPIRY_WINDOW_DAYS = 30;
+
+// What we hand to the form when creating a brand-new product from a scan.
+interface Prefill {
+  barcode: string;
+  name?: string;
+}
 
 export default function InventoryScreen() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -27,6 +37,9 @@ export default function InventoryScreen() {
   const [savingId, setSavingId] = useState<string | null>(null);
   // null = closed, 'new' = create form, Product = edit that product
   const [formTarget, setFormTarget] = useState<Product | 'new' | null>(null);
+  const [prefill, setPrefill] = useState<Prefill | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const [lookup, setLookup] = useState<string | null>(null); // status message during lookup
 
   useEffect(() => {
     void load();
@@ -83,6 +96,37 @@ export default function InventoryScreen() {
     setProducts((prev) => prev.filter((p) => p.id !== product.id));
   }
 
+  // Camera scan → local DB → global API → open the right form.
+  async function handleScanned(rawCode: string) {
+    const code = rawCode.trim();
+    if (!code) return;
+    setScanning(false); // close the camera immediately on a successful read
+
+    // 1. Look in OUR catalogue first (RLS scopes this to the current shop).
+    setLookup(`Looking up ${code}…`);
+    const { data: existing } = await supabase
+      .from('products')
+      .select('*')
+      .eq('barcode', code)
+      .maybeSingle();
+
+    if (existing) {
+      // Found locally → open it for a stock update.
+      setLookup(null);
+      setFormTarget(existing as Product);
+      return;
+    }
+
+    // 2. Not in our DB → try the free global barcode databases.
+    setLookup(`Not in your catalogue — searching global database…`);
+    const global = await lookupBarcodeGlobal(code);
+    setLookup(null);
+
+    // 3. Open the "new product" form, pre-filled as far as we could.
+    setPrefill({ barcode: code, name: global?.name });
+    setFormTarget('new');
+  }
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return products;
@@ -132,13 +176,25 @@ export default function InventoryScreen() {
             className="flex-1 bg-transparent outline-none text-slate-800 placeholder:text-slate-400"
           />
         </div>
-        <button
-          type="button"
-          onClick={() => setFormTarget('new')}
-          className="flex items-center gap-2 rounded-full bg-mint-500 text-white px-5 py-3 font-semibold hover:bg-mint-600 shadow-sm active:scale-[0.98]"
-        >
-          <PackagePlus size={18} /> New product
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setScanning(true)}
+            className="flex items-center gap-2 rounded-full bg-peach-300 text-white px-5 py-3 font-semibold hover:bg-peach-400 shadow-sm active:scale-[0.98]"
+          >
+            <Camera size={18} /> Scan barcode
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setPrefill(null);
+              setFormTarget('new');
+            }}
+            className="flex items-center gap-2 rounded-full bg-mint-500 text-white px-5 py-3 font-semibold hover:bg-mint-600 shadow-sm active:scale-[0.98]"
+          >
+            <PackagePlus size={18} /> New product
+          </button>
+        </div>
       </div>
 
       {/* Table */}
@@ -331,12 +387,29 @@ export default function InventoryScreen() {
       {formTarget && (
         <ProductFormModal
           product={formTarget === 'new' ? null : formTarget}
-          onClose={() => setFormTarget(null)}
+          prefill={formTarget === 'new' ? prefill : null}
+          onClose={() => {
+            setFormTarget(null);
+            setPrefill(null);
+          }}
           onSaved={() => {
             setFormTarget(null);
+            setPrefill(null);
             void load();
           }}
         />
+      )}
+
+      {scanning && (
+        <Suspense fallback={null}>
+          <BarcodeScanner onDetect={handleScanned} onClose={() => setScanning(false)} />
+        </Suspense>
+      )}
+
+      {lookup && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-xl bg-slate-900 text-white px-4 py-3 shadow-lg">
+          <Loader2 className="animate-spin text-mint-300" size={18} /> {lookup}
+        </div>
       )}
     </div>
   );
@@ -347,17 +420,19 @@ export default function InventoryScreen() {
 // ---------------------------------------------------------------------------
 function ProductFormModal({
   product,
+  prefill,
   onClose,
   onSaved,
 }: {
   product: Product | null;
+  prefill?: Prefill | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const isEdit = product !== null;
   const [form, setForm] = useState({
-    name: product?.name ?? '',
-    barcode: product?.barcode ?? '',
+    name: product?.name ?? prefill?.name ?? '',
+    barcode: product?.barcode ?? prefill?.barcode ?? '',
     category: product?.category ?? '',
     batch_number: product?.batch_number ?? '',
     expiry_date: product?.expiry_date ?? '',
@@ -409,10 +484,21 @@ function ProductFormModal({
       <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl my-auto">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-bold text-slate-800">{isEdit ? 'Edit product' : 'New product'}</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600">
             <X size={20} />
           </button>
         </div>
+
+        {!isEdit && prefill && (
+          <div className="mb-4 flex items-start gap-2 rounded-xl bg-mint-50 border border-mint-200 px-3 py-2.5 text-sm">
+            <Camera size={16} className="text-mint-600 mt-0.5 shrink-0" />
+            <span className="text-slate-600">
+              {prefill.name
+                ? 'Found online — name & barcode filled in. Review the details and add your prices/stock.'
+                : 'Barcode captured. We couldn’t identify it online, so please type the product name.'}
+            </span>
+          </div>
+        )}
 
         <form onSubmit={submit} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field className="sm:col-span-2" label="Name" required>

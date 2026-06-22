@@ -17,6 +17,15 @@ import { supabase } from '../supabaseClient';
 const BarcodeScanner = lazy(() => import('./BarcodeScanner'));
 import type { CartLine, Customer, PaymentMethod, Product } from '../types';
 import { formatMoney, formatPercent } from '../lib/format';
+import {
+  cacheProducts,
+  getCachedProducts,
+  cacheCustomers,
+  getCachedCustomers,
+  enqueueSale,
+  makeLocalId,
+  type QueuedSale,
+} from '../lib/offline';
 
 const PAYMENT_METHODS: PaymentMethod[] = ['cash', 'card', 'khata'];
 
@@ -64,13 +73,23 @@ export default function POSScreen() {
   }, []);
 
   async function loadProducts() {
-    const { data } = await supabase
-      .from('products')
-      .select('*')
-      .order('name', { ascending: true });
-    const rows = (data as Product[]) ?? [];
-    setProducts(rows);
-    productsRef.current = rows;
+    if (navigator.onLine) {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .order('name', { ascending: true });
+      if (!error && data) {
+        const rows = data as Product[];
+        setProducts(rows);
+        productsRef.current = rows;
+        cacheProducts(rows); // keep a local copy for offline use
+        return;
+      }
+    }
+    // Offline (or fetch failed): fall back to the cached catalog.
+    const cached = getCachedProducts();
+    setProducts(cached);
+    productsRef.current = cached;
   }
 
   function flashToast(msg: string) {
@@ -91,11 +110,18 @@ export default function POSScreen() {
   }
 
   async function loadCustomers() {
-    const { data } = await supabase
-      .from('customers')
-      .select('*')
-      .order('name', { ascending: true });
-    setCustomers((data as Customer[]) ?? []);
+    if (navigator.onLine) {
+      const { data, error } = await supabase
+        .from('customers')
+        .select('*')
+        .order('name', { ascending: true });
+      if (!error && data) {
+        setCustomers(data as Customer[]);
+        cacheCustomers(data as Customer[]);
+        return;
+      }
+    }
+    setCustomers(getCachedCustomers());
   }
 
   // --- product search -------------------------------------------------------
@@ -185,34 +211,65 @@ export default function POSScreen() {
       return;
     }
 
-    setSubmitting(true);
-    const { error: rpcError } = await supabase.rpc('process_sale', {
-      p_payment_method: payment,
-      p_total_amount: Number(totals.amount.toFixed(2)),
-      p_total_profit: Number(totals.profit.toFixed(2)),
-      p_items: cart.map((l) => ({
+    const sale: QueuedSale = {
+      localId: makeLocalId(),
+      created_at: new Date().toISOString(),
+      payment_method: payment,
+      total_amount: Number(totals.amount.toFixed(2)),
+      total_profit: Number(totals.profit.toFixed(2)),
+      customer_id: payment === 'khata' ? customer!.id : null,
+      items: cart.map((l) => ({
         product_id: l.product.id,
         quantity: l.quantity,
         unit_price: l.product.selling_price,
         unit_cost: l.product.cost_price,
       })),
-      p_customer_id: payment === 'khata' ? customer!.id : null,
+    };
+
+    function finishSale(message: string) {
+      setToast(message);
+      setCart([]);
+      setPayment('cash');
+      setCustomer(null);
+      setCustomerQuery('');
+      setTimeout(() => setToast(null), 3500);
+    }
+
+    // Offline → queue it locally and apply optimistically. It syncs on reconnect.
+    if (!navigator.onLine) {
+      enqueueSale(sale);
+      await loadProducts();
+      await loadCustomers();
+      finishSale(`Saved offline — ${formatMoney(sale.total_amount)} · will sync`);
+      return;
+    }
+
+    setSubmitting(true);
+    const { error: rpcError } = await supabase.rpc('process_sale', {
+      p_payment_method: sale.payment_method,
+      p_total_amount: sale.total_amount,
+      p_total_profit: sale.total_profit,
+      p_items: sale.items,
+      p_customer_id: sale.customer_id,
     });
     setSubmitting(false);
 
     if (rpcError) {
+      // Likely lost connectivity mid-request → queue instead of failing the sale.
+      if (!navigator.onLine || rpcError.message.toLowerCase().includes('fetch')) {
+        enqueueSale(sale);
+        await loadProducts();
+        await loadCustomers();
+        finishSale(`Saved offline — ${formatMoney(sale.total_amount)} · will sync`);
+        return;
+      }
       setError(rpcError.message);
       return;
     }
 
-    setToast(`Sale complete — ${formatMoney(totals.amount)}`);
-    setCart([]);
-    setPayment('cash');
-    setCustomer(null);
-    setCustomerQuery('');
     await loadProducts(); // refresh stock counts
     await loadCustomers(); // refresh balances
-    setTimeout(() => setToast(null), 3500);
+    finishSale(`Sale complete — ${formatMoney(sale.total_amount)}`);
   }
 
   return (

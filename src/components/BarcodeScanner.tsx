@@ -8,14 +8,15 @@ const SCAN_CONFIG: Html5QrcodeCameraScanConfig = {
   fps: 10,
   // Wide-ish box suited to 1D retail barcodes (EAN/UPC) as well as QR codes.
   qrbox: { width: 280, height: 180 },
-  aspectRatio: 1.3333,
 };
 
 /**
  * Full-screen camera scanner. Calls `onDetect` with the decoded value on each
  * successful read; the parent decides what to do (look up product, add to cart).
- * Identical reads are debounced so a barcode lingering in view isn't added many
- * times. The camera stays on for continuous scanning until the user closes it.
+ *
+ * Lifecycle is hardened against React StrictMode's double-mount: the cleanup
+ * waits for start() to finish before stopping, so the two dev-mode mounts don't
+ * race two camera streams (which otherwise leaves a frozen black preview).
  */
 export default function BarcodeScanner({
   onDetect,
@@ -24,38 +25,36 @@ export default function BarcodeScanner({
   onDetect: (code: string) => void;
   onClose: () => void;
 }) {
-  const scannerRef = useRef<Html5Qrcode | null>(null);
   const lastCodeRef = useRef<{ code: string; at: number }>({ code: '', at: 0 });
+  // Keep the latest onDetect without re-running the camera effect.
+  const onDetectRef = useRef(onDetect);
+  onDetectRef.current = onDetect;
+
   const [status, setStatus] = useState<'starting' | 'scanning' | 'error'>('starting');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
     const scanner = new Html5Qrcode(READER_ID, { verbose: false });
-    scannerRef.current = scanner;
 
-    scanner
+    const startPromise = scanner
       .start(
         { facingMode: 'environment' }, // prefer the rear camera on phones
         SCAN_CONFIG,
         (decodedText) => {
-          // Debounce: ignore the same code within 1.5s.
           const now = Date.now();
+          // Debounce identical reads within 1.5s.
           if (decodedText === lastCodeRef.current.code && now - lastCodeRef.current.at < 1500) {
             return;
           }
           lastCodeRef.current = { code: decodedText, at: now };
-          onDetect(decodedText);
+          onDetectRef.current(decodedText);
         },
         () => {
           /* per-frame decode failures are normal; ignore */
         },
       )
-      .then(() => {
-        if (!cancelled) setStatus('scanning');
-      })
+      .then(() => setStatus('scanning'))
       .catch((err: unknown) => {
-        if (cancelled) return;
         setStatus('error');
         setErrorMsg(
           err instanceof Error
@@ -65,23 +64,28 @@ export default function BarcodeScanner({
       });
 
     return () => {
-      cancelled = true;
-      const s = scannerRef.current;
-      if (s) {
-        // stop() rejects if it never started; swallow that.
-        s.stop()
-          .then(() => s.clear())
-          .catch(() => {
-            try {
-              s.clear();
-            } catch {
-              /* noop */
-            }
-          });
-      }
+      // Wait for start() to settle, THEN tear down — prevents the StrictMode
+      // double-mount from stopping a stream that hasn't finished starting.
+      void startPromise.finally(() => {
+        const cleanup = () => {
+          try {
+            scanner.clear();
+          } catch {
+            /* noop */
+          }
+        };
+        try {
+          // 2 === SCANNING in Html5QrcodeScannerState
+          if (scanner.getState() === 2) {
+            scanner.stop().then(cleanup).catch(cleanup);
+          } else {
+            cleanup();
+          }
+        } catch {
+          cleanup();
+        }
+      });
     };
-    // onDetect is stable enough for our use; intentionally run once.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -94,9 +98,15 @@ export default function BarcodeScanner({
           </button>
         </div>
 
-        <div className="relative rounded-xl overflow-hidden bg-slate-900 aspect-[4/3]">
-          {/* html5-qrcode injects the <video> into this element */}
-          <div id={READER_ID} className="w-full h-full [&_video]:object-cover" />
+        <div
+          className="relative rounded-xl overflow-hidden bg-slate-900"
+          style={{ minHeight: 320 }}
+        >
+          {/* html5-qrcode injects a <video> here; force it to fill the box. */}
+          <div
+            id={READER_ID}
+            className="w-full h-full [&_video]:!w-full [&_video]:!h-[320px] [&_video]:!object-cover"
+          />
 
           {status === 'starting' && (
             <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-300 gap-2">

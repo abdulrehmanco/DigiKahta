@@ -71,10 +71,6 @@ export default function Login() {
             {busy ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
-
-        <p className="text-xs text-slate-400 text-center mt-6">
-          Accounts are provisioned in Supabase. Roles default to “cashier”.
-        </p>
       </div>
     </div>
   );

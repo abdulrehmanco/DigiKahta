@@ -16,6 +16,7 @@ import {
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './components/Login';
 import GlobalSearch from './components/GlobalSearch';
+import SyncIndicator from './components/SyncIndicator';
 import Dashboard from './components/Dashboard';
 import POSScreen from './components/POSScreen';
 import InventoryScreen from './components/InventoryScreen';
@@ -155,6 +156,9 @@ function Shell() {
 
           {/* Global product / customer search */}
           <GlobalSearch onNavigate={go} />
+
+          {/* Connectivity / offline-sync status */}
+          <SyncIndicator />
 
           {/* User chip */}
           <div className="relative">
