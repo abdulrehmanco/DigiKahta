@@ -11,11 +11,11 @@ import {
   X,
   Loader2,
   Lock,
-  Search,
   ChevronDown,
 } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './components/Login';
+import GlobalSearch from './components/GlobalSearch';
 import Dashboard from './components/Dashboard';
 import POSScreen from './components/POSScreen';
 import InventoryScreen from './components/InventoryScreen';
@@ -153,16 +153,8 @@ function Shell() {
             {mobileOpen ? <X size={22} /> : <Menu size={22} />}
           </button>
 
-          {/* Global search (visual) */}
-          <div className="flex-1 max-w-2xl">
-            <div className="flex items-center gap-2 rounded-full bg-white/80 backdrop-blur border border-white px-4 py-2.5 shadow-sm">
-              <Search size={18} className="text-slate-400" />
-              <input
-                placeholder="Search products or customers…"
-                className="flex-1 bg-transparent outline-none text-slate-700 placeholder:text-slate-400"
-              />
-            </div>
-          </div>
+          {/* Global product / customer search */}
+          <GlobalSearch onNavigate={go} />
 
           {/* User chip */}
           <div className="relative">
