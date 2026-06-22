@@ -48,6 +48,25 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* When printing a receipt, show only the receipt and nothing else. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #receipt-printable,
+  #receipt-printable * {
+    visibility: visible;
+  }
+  #receipt-printable {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+}
+
 /* Reusable breezy primitives */
 @layer components {
   .breezy-card {

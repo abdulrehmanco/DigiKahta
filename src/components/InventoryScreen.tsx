@@ -40,6 +40,7 @@ export default function InventoryScreen() {
   const [prefill, setPrefill] = useState<Prefill | null>(null);
   const [scanning, setScanning] = useState(false);
   const [lookup, setLookup] = useState<string | null>(null); // status message during lookup
+  const [detail, setDetail] = useState<'low' | 'out' | 'expiring' | null>(null);
 
   useEffect(() => {
     void load();
@@ -139,29 +140,42 @@ export default function InventoryScreen() {
     );
   }, [query, products]);
 
-  const stats = useMemo(() => {
+  const buckets = useMemo(() => {
     const low = products.filter(
       (p) => p.stock_quantity <= p.low_stock_threshold && p.stock_quantity > 0,
-    ).length;
-    const out = products.filter((p) => p.stock_quantity === 0).length;
+    );
+    const out = products.filter((p) => p.stock_quantity === 0);
     const expiring = products.filter((p) => {
       const d = daysUntil(p.expiry_date);
       return d !== null && d <= EXPIRY_WINDOW_DAYS;
-    }).length;
+    });
     return { low, out, expiring };
   }, [products]);
 
   return (
     <div className="space-y-5">
-      {/* Summary chips */}
+      {/* Summary chips — click to see the actual items */}
       <div className="grid grid-cols-3 gap-4">
-        <StatChip icon={<AlertTriangle size={18} />} label="Low stock" value={stats.low} tone="amber" />
-        <StatChip icon={<PackageX size={18} />} label="Out of stock" value={stats.out} tone="red" />
+        <StatChip
+          icon={<AlertTriangle size={18} />}
+          label="Low stock"
+          value={buckets.low.length}
+          tone="amber"
+          onClick={() => buckets.low.length && setDetail('low')}
+        />
+        <StatChip
+          icon={<PackageX size={18} />}
+          label="Out of stock"
+          value={buckets.out.length}
+          tone="red"
+          onClick={() => buckets.out.length && setDetail('out')}
+        />
         <StatChip
           icon={<CalendarClock size={18} />}
           label={`Expiring ≤ ${EXPIRY_WINDOW_DAYS}d`}
-          value={stats.expiring}
+          value={buckets.expiring.length}
           tone="violet"
+          onClick={() => buckets.expiring.length && setDetail('expiring')}
         />
       </div>
 
@@ -411,6 +425,113 @@ export default function InventoryScreen() {
           <Loader2 className="animate-spin text-mint-300" size={18} /> {lookup}
         </div>
       )}
+
+      {detail && (
+        <StockDetailModal
+          kind={detail}
+          items={buckets[detail]}
+          onClose={() => setDetail(null)}
+          onPick={(p) => {
+            setDetail(null);
+            setFormTarget(p); // jump straight into editing that product
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Drill-down list shown when a summary chip is clicked
+// ---------------------------------------------------------------------------
+function StockDetailModal({
+  kind,
+  items,
+  onClose,
+  onPick,
+}: {
+  kind: 'low' | 'out' | 'expiring';
+  items: Product[];
+  onClose: () => void;
+  onPick: (p: Product) => void;
+}) {
+  const meta = {
+    low: { title: 'Low stock items', icon: <AlertTriangle size={18} />, tone: 'text-amber-600 bg-amber-100' },
+    out: { title: 'Out of stock items', icon: <PackageX size={18} />, tone: 'text-rose-500 bg-rose-100' },
+    expiring: {
+      title: `Expiring within ${EXPIRY_WINDOW_DAYS} days`,
+      icon: <CalendarClock size={18} />,
+      tone: 'text-violet-600 bg-violet-100',
+    },
+  }[kind];
+
+  return (
+    <div className="fixed inset-0 z-50 bg-slate-900/30 backdrop-blur-sm flex items-center justify-center px-4 py-6">
+      <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl flex flex-col max-h-[80vh]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+          <div className="flex items-center gap-2">
+            <span className={`h-9 w-9 rounded-xl flex items-center justify-center ${meta.tone}`}>
+              {meta.icon}
+            </span>
+            <h3 className="font-bold text-slate-800">
+              {meta.title} <span className="text-slate-400 font-medium">({items.length})</span>
+            </h3>
+          </div>
+          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600">
+            <X size={20} />
+          </button>
+        </div>
+
+        <ul className="overflow-y-auto divide-y divide-slate-50">
+          {items.map((p) => {
+            const exp = daysUntil(p.expiry_date);
+            return (
+              <li key={p.id}>
+                <button
+                  type="button"
+                  onClick={() => onPick(p)}
+                  className="w-full flex items-center justify-between px-5 py-3 hover:bg-mint-50/60 text-left"
+                >
+                  <div className="min-w-0">
+                    <div className="font-medium text-slate-800 truncate">{p.name}</div>
+                    <div className="text-xs text-slate-400">
+                      {p.category ?? '—'}
+                      {p.shelf_location ? ` · Shelf ${p.shelf_location}` : ''}
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0 ml-3">
+                    {kind === 'expiring' ? (
+                      <span className="text-sm font-semibold text-violet-600">
+                        {p.expiry_date}
+                        {exp !== null && (
+                          <span className="block text-xs font-normal text-slate-400">
+                            {exp < 0 ? 'expired' : `${exp} day${exp === 1 ? '' : 's'} left`}
+                          </span>
+                        )}
+                      </span>
+                    ) : (
+                      <span
+                        className={`text-sm font-semibold ${
+                          kind === 'out' ? 'text-rose-500' : 'text-amber-600'
+                        }`}
+                      >
+                        {p.stock_quantity} left
+                        <span className="block text-xs font-normal text-slate-400">
+                          min {p.low_stock_threshold}
+                        </span>
+                      </span>
+                    )}
+                  </div>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+
+        <div className="px-5 py-3 border-t border-slate-100 text-xs text-slate-400">
+          Tap an item to edit it{kind === 'expiring' ? '' : ' or restock'}.
+        </div>
+      </div>
     </div>
   );
 }
@@ -650,19 +771,29 @@ function StatChip({
   label,
   value,
   tone,
+  onClick,
 }: {
   icon: React.ReactNode;
   label: string;
   value: number;
   tone: 'amber' | 'red' | 'violet';
+  onClick?: () => void;
 }) {
   const tones = {
     amber: 'text-amber-600 bg-amber-100',
     red: 'text-rose-500 bg-rose-100',
     violet: 'text-violet-600 bg-violet-100',
   } as const;
+  const clickable = value > 0 && !!onClick;
   return (
-    <div className="breezy-card px-4 py-3.5 flex items-center gap-3">
+    <button
+      type="button"
+      onClick={clickable ? onClick : undefined}
+      disabled={!clickable}
+      className={`breezy-card px-4 py-3.5 flex items-center gap-3 text-left w-full transition ${
+        clickable ? 'hover:shadow-md hover:-translate-y-0.5 cursor-pointer' : 'cursor-default'
+      }`}
+    >
       <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${tones[tone]}`}>
         {icon}
       </div>
@@ -670,6 +801,6 @@ function StatChip({
         <div className="text-2xl font-bold leading-none text-slate-800">{value}</div>
         <div className="text-xs text-slate-400 mt-1">{label}</div>
       </div>
-    </div>
+    </button>
   );
 }

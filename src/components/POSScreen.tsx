@@ -13,6 +13,8 @@ import {
   PackageSearch,
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
+import { useAuth } from '../context/AuthContext';
+import ReceiptModal, { type Receipt } from './ReceiptModal';
 // Lazy-loaded: pulls in the heavy html5-qrcode library only when the camera opens.
 const BarcodeScanner = lazy(() => import('./BarcodeScanner'));
 import type { CartLine, Customer, PaymentMethod, Product } from '../types';
@@ -49,6 +51,7 @@ const PAYMENT_STYLE: Record<PaymentMethod, { label: string; idle: string; active
 };
 
 export default function POSScreen() {
+  const { shop } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [query, setQuery] = useState('');
   const [cart, setCart] = useState<CartLine[]>([]);
@@ -61,6 +64,7 @@ export default function POSScreen() {
   const [toast, setToast] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
+  const [receipt, setReceipt] = useState<Receipt | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   // Latest products, readable from the scanner callback without stale closures.
   const productsRef = useRef<Product[]>([]);
@@ -226,20 +230,42 @@ export default function POSScreen() {
       })),
     };
 
-    function finishSale(message: string) {
-      setToast(message);
+    // Snapshot a receipt from the current cart BEFORE it gets cleared.
+    function makeReceipt(offline: boolean): Receipt {
+      return {
+        shopName: shop?.name ?? 'Mizan Al-Raees',
+        createdAt: sale.created_at,
+        payment,
+        total: sale.total_amount,
+        items: cart.map((l) => ({
+          name: l.product.name,
+          quantity: l.quantity,
+          unitPrice: l.product.selling_price,
+          lineTotal: l.product.selling_price * l.quantity,
+        })),
+        customerName: customer?.name ?? null,
+        customerPhone: customer?.phone ?? null,
+        balanceAfter:
+          payment === 'khata' && customer
+            ? Number(customer.current_balance) + sale.total_amount
+            : null,
+        offline,
+      };
+    }
+
+    function finishSale(offline: boolean) {
+      setReceipt(makeReceipt(offline)); // show the receipt
       setCart([]);
       setPayment('cash');
       setCustomer(null);
       setCustomerQuery('');
-      setTimeout(() => setToast(null), 3500);
     }
 
     async function queueOffline() {
       enqueueSale(sale);
       await loadProducts(); // reflect optimistic stock/balance from cache
       await loadCustomers();
-      finishSale(`Saved offline — ${formatMoney(sale.total_amount)} · will sync`);
+      finishSale(true);
     }
 
     // Offline → queue it locally and apply optimistically. It syncs on reconnect.
@@ -263,7 +289,7 @@ export default function POSScreen() {
 
       await loadProducts(); // refresh stock counts
       await loadCustomers(); // refresh balances
-      finishSale(`Sale complete — ${formatMoney(sale.total_amount)}`);
+      finishSale(false);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       // Network/connectivity failure → queue offline instead of losing the sale.
@@ -540,6 +566,16 @@ export default function POSScreen() {
         <Suspense fallback={null}>
           <BarcodeScanner onDetect={addByBarcode} onClose={() => setScanning(false)} />
         </Suspense>
+      )}
+
+      {receipt && (
+        <ReceiptModal
+          receipt={receipt}
+          onClose={() => {
+            setReceipt(null);
+            searchRef.current?.focus();
+          }}
+        />
       )}
     </div>
   );

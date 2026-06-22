@@ -5,6 +5,7 @@ import {
   Boxes,
   BookUser,
   BarChart3,
+  PackageCheck,
   LogOut,
   TreePalm,
   Menu,
@@ -20,10 +21,11 @@ import SyncIndicator from './components/SyncIndicator';
 import Dashboard from './components/Dashboard';
 import POSScreen from './components/POSScreen';
 import InventoryScreen from './components/InventoryScreen';
+import RestockScreen from './components/RestockScreen';
 import AnalyticsScreen from './components/AnalyticsScreen';
 import KhataScreen from './components/KhataScreen';
 
-type ScreenId = 'dashboard' | 'pos' | 'inventory' | 'ledger' | 'analytics';
+type ScreenId = 'dashboard' | 'pos' | 'inventory' | 'restock' | 'ledger' | 'analytics';
 
 interface NavItem {
   id: ScreenId;
@@ -36,6 +38,7 @@ const NAV: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
   { id: 'pos', label: 'POS', icon: <ScanLine size={20} /> },
   { id: 'inventory', label: 'Inventory', icon: <Boxes size={20} /> },
+  { id: 'restock', label: 'Smart Stock', icon: <PackageCheck size={20} /> },
   { id: 'ledger', label: 'Ledger', icon: <BookUser size={20} /> },
   { id: 'analytics', label: 'Analytics', icon: <BarChart3 size={20} />, ownerOnly: true },
 ];
@@ -44,6 +47,7 @@ const TITLES: Record<ScreenId, string> = {
   dashboard: 'Dashboard',
   pos: 'POS Terminal',
   inventory: 'Inventory',
+  restock: 'Smart Stock',
   ledger: 'Digital Ledger',
   analytics: 'Business Advisor',
 };
@@ -201,6 +205,7 @@ function Shell() {
           {screen === 'dashboard' && <Dashboard />}
           {screen === 'pos' && <POSScreen />}
           {screen === 'inventory' && <InventoryScreen />}
+          {screen === 'restock' && <RestockScreen />}
           {screen === 'ledger' && <KhataScreen />}
           {screen === 'analytics' && <AnalyticsScreen />}
         </main>
