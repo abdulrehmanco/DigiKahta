@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { Users, UserPlus, Loader2, Lock, ShieldCheck, X, MailCheck } from 'lucide-react';
+import { Users, UserPlus, Loader2, Lock, ShieldCheck, X, MailCheck, UserMinus } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { provisionCashier } from '../lib/provision';
@@ -10,6 +10,24 @@ export default function StaffScreen() {
   const [staff, setStaff] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+
+  async function removeStaff(member: Profile) {
+    if (
+      !window.confirm(
+        `Remove ${member.email} from ${shop?.name ?? 'this shop'}? They'll lose all access immediately.`,
+      )
+    )
+      return;
+    setRemovingId(member.id);
+    const { error } = await supabase.rpc('remove_staff', { p_user_id: member.id });
+    setRemovingId(null);
+    if (error) {
+      window.alert(`Could not remove: ${error.message}`);
+      return;
+    }
+    setStaff((prev) => prev.filter((s) => s.id !== member.id));
+  }
 
   useEffect(() => {
     if (isCashier) return;
@@ -82,7 +100,26 @@ export default function StaffScreen() {
                     <div className="text-xs text-slate-400 capitalize">{s.role}</div>
                   </div>
                 </div>
-                {s.role === 'owner' && <ShieldCheck size={18} className="text-mint-600 shrink-0" />}
+                {s.role === 'owner' ? (
+                  <ShieldCheck size={18} className="text-mint-600 shrink-0" />
+                ) : (
+                  isOwner &&
+                  s.id !== profile?.id && (
+                    <button
+                      type="button"
+                      onClick={() => removeStaff(s)}
+                      disabled={removingId === s.id}
+                      className="flex items-center gap-1.5 rounded-full bg-rose-50 text-rose-500 px-3 py-1.5 text-xs font-semibold hover:bg-rose-100 disabled:opacity-50 shrink-0"
+                    >
+                      {removingId === s.id ? (
+                        <Loader2 className="animate-spin" size={13} />
+                      ) : (
+                        <UserMinus size={13} />
+                      )}
+                      Remove
+                    </button>
+                  )
+                )}
               </li>
             ))}
           </ul>
@@ -90,8 +127,8 @@ export default function StaffScreen() {
       </div>
 
       <p className="text-xs text-slate-400">
-        To remove someone, disable their account in Supabase → Authentication. (In-app removal is
-        coming.)
+        Removing a cashier instantly revokes their access. Their login stays dormant in Supabase
+        until you delete it there.
       </p>
 
       {showAdd && profile?.shop_id && (
