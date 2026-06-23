@@ -67,6 +67,14 @@ export interface KhataTransaction {
   created_at: string;
 }
 
+export interface Expense {
+  id: string;
+  amount: number;
+  category: string | null;
+  note: string | null;
+  created_at: string;
+}
+
 // A single line in the POS cart (client-side only, before it becomes a sales_item)
 export interface CartLine {
   product: Product;

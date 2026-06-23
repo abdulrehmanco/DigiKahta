@@ -6,6 +6,7 @@ import {
   BookUser,
   BarChart3,
   PackageCheck,
+  ReceiptText,
   LogOut,
   TreePalm,
   Menu,
@@ -13,6 +14,8 @@ import {
   Loader2,
   Lock,
   ChevronDown,
+  PanelLeft,
+  PanelLeftClose,
 } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './components/Login';
@@ -22,10 +25,11 @@ import Dashboard from './components/Dashboard';
 import POSScreen from './components/POSScreen';
 import InventoryScreen from './components/InventoryScreen';
 import RestockScreen from './components/RestockScreen';
+import SalesScreen from './components/SalesScreen';
 import AnalyticsScreen from './components/AnalyticsScreen';
 import KhataScreen from './components/KhataScreen';
 
-type ScreenId = 'dashboard' | 'pos' | 'inventory' | 'restock' | 'ledger' | 'analytics';
+type ScreenId = 'dashboard' | 'pos' | 'inventory' | 'restock' | 'ledger' | 'sales' | 'analytics';
 
 interface NavItem {
   id: ScreenId;
@@ -40,6 +44,7 @@ const NAV: NavItem[] = [
   { id: 'inventory', label: 'Inventory', icon: <Boxes size={20} /> },
   { id: 'restock', label: 'Smart Stock', icon: <PackageCheck size={20} /> },
   { id: 'ledger', label: 'Ledger', icon: <BookUser size={20} /> },
+  { id: 'sales', label: 'Sales', icon: <ReceiptText size={20} />, ownerOnly: true },
   { id: 'analytics', label: 'Analytics', icon: <BarChart3 size={20} />, ownerOnly: true },
 ];
 
@@ -49,6 +54,7 @@ const TITLES: Record<ScreenId, string> = {
   inventory: 'Inventory',
   restock: 'Smart Stock',
   ledger: 'Digital Ledger',
+  sales: 'Sales History',
   analytics: 'Business Advisor',
 };
 
@@ -57,6 +63,7 @@ function Shell() {
   const [screen, setScreen] = useState<ScreenId>('dashboard');
   const [mobileOpen, setMobileOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true); // desktop collapse
 
   if (loading) {
     return (
@@ -134,8 +141,10 @@ function Shell() {
       <div className="pointer-events-none absolute -top-24 -right-24 h-72 w-72 rounded-full bg-peach-200/40 blur-3xl" />
       <div className="pointer-events-none absolute bottom-0 left-40 h-72 w-72 rounded-full bg-mint-200/40 blur-3xl" />
 
-      {/* Desktop sidebar */}
-      <div className="hidden md:block flex-shrink-0 relative z-10">{Sidebar}</div>
+      {/* Desktop sidebar (collapsible) */}
+      {sidebarOpen && (
+        <div className="hidden md:block flex-shrink-0 relative z-10">{Sidebar}</div>
+      )}
 
       {/* Mobile drawer */}
       {mobileOpen && (
@@ -149,6 +158,7 @@ function Shell() {
       <div className="flex-1 flex flex-col min-w-0 relative z-10">
         {/* Top bar */}
         <header className="flex items-center gap-3 px-4 md:px-8 h-20 flex-shrink-0">
+          {/* Mobile drawer toggle */}
           <button
             type="button"
             className="md:hidden text-slate-500"
@@ -156,6 +166,17 @@ function Shell() {
             aria-label="Toggle menu"
           >
             {mobileOpen ? <X size={22} /> : <Menu size={22} />}
+          </button>
+
+          {/* Desktop sidebar collapse toggle */}
+          <button
+            type="button"
+            className="hidden md:flex h-10 w-10 items-center justify-center rounded-full bg-white/80 backdrop-blur border border-white shadow-sm text-slate-500 hover:text-slate-700 shrink-0"
+            onClick={() => setSidebarOpen((v) => !v)}
+            aria-label={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+            title={sidebarOpen ? 'Hide menu' : 'Show menu'}
+          >
+            {sidebarOpen ? <PanelLeftClose size={20} /> : <PanelLeft size={20} />}
           </button>
 
           {/* Global product / customer search */}
@@ -207,6 +228,7 @@ function Shell() {
           {screen === 'inventory' && <InventoryScreen />}
           {screen === 'restock' && <RestockScreen />}
           {screen === 'ledger' && <KhataScreen />}
+          {screen === 'sales' && <SalesScreen />}
           {screen === 'analytics' && <AnalyticsScreen />}
         </main>
       </div>

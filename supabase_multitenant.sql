@@ -51,6 +51,15 @@ truncate
   public.products
 restart identity cascade;
 
+-- Make phone/barcode unique PER SHOP, not globally. The original schema had a
+-- global unique on each, which blocks one shop from using a phone/barcode that
+-- another shop already has — and leaks that it exists elsewhere.
+alter table public.customers drop constraint if exists customers_phone_key;
+alter table public.customers add constraint customers_phone_shop_key unique (shop_id, phone);
+
+alter table public.products drop constraint if exists products_barcode_key;
+alter table public.products add constraint products_barcode_shop_key unique (shop_id, barcode);
+
 -- -----------------------------------------------------------------------------
 -- 4. Tenant helper functions (SECURITY DEFINER so they bypass profiles RLS)
 -- -----------------------------------------------------------------------------
