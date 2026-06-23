@@ -110,6 +110,8 @@ export async function flushQueue(): Promise<number> {
         p_total_profit: sale.total_profit,
         p_items: sale.items,
         p_customer_id: sale.customer_id,
+        // The sale already happened offline — record it even if stock is now short.
+        p_allow_oversell: true,
       });
       if (error) {
         // Stop on first failure (likely back offline, or a server reject);

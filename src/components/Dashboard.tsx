@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ResponsiveContainer, AreaChart, Area } from 'recharts';
+import { ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell, Tooltip } from 'recharts';
 import {
   TrendingUp,
   TrendingDown,
@@ -37,6 +37,7 @@ interface KhataRow {
 interface ProductRow {
   stock_quantity: number;
   low_stock_threshold: number;
+  cost_price: number;
 }
 interface CustomerRow {
   id: string;
@@ -93,7 +94,7 @@ export default function Dashboard() {
         .select('id, type, amount, created_at, customer_id, customers(name)')
         .order('created_at', { ascending: false })
         .limit(40),
-      supabase.from('products').select('stock_quantity, low_stock_threshold'),
+      supabase.from('products').select('stock_quantity, low_stock_threshold, cost_price'),
       supabase.from('customers').select('id, current_balance'),
       supabase
         .from('expenses')
@@ -226,6 +227,18 @@ export default function Dashboard() {
     return names.length > 2 ? `${shown}, +${names.length - 2} more` : shown;
   }
 
+  // "Where's my money" — capital tied up + cash flow.
+  const money = useMemo(() => {
+    const stockValue = products.reduce(
+      (s, p) => s + p.stock_quantity * Number(p.cost_price),
+      0,
+    );
+    const khataOwed = customers.reduce((s, c) => s + Number(c.current_balance), 0);
+    const totalExpenses = expenses.reduce((s, e) => s + Number(e.amount), 0);
+    const totalRevenue = receipts.reduce((s, r) => s + Number(r.total_amount), 0);
+    return { stockValue, khataOwed, totalExpenses, netCash: totalRevenue - totalExpenses };
+  }, [products, customers, expenses, receipts]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24 text-slate-400">
@@ -337,6 +350,64 @@ export default function Dashboard() {
           </div>
         );
       })()}
+
+      {/* Where's my money — capital snapshot */}
+      <div className="breezy-card p-6">
+        <div className="flex items-center gap-2 text-slate-800 font-bold mb-1">
+          <Wallet size={18} className="text-mint-600" /> Where Your Money Is
+        </div>
+        <p className="text-xs text-slate-400 mb-4">
+          Your capital, right now — in stock and owed to you — plus cash flow.
+        </p>
+        <div className="grid md:grid-cols-2 gap-6 items-center">
+          {/* Donut: capital tied up */}
+          <div className="h-48">
+            {money.stockValue + money.khataOwed > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={[
+                      { name: 'In stock', value: money.stockValue },
+                      { name: 'Owed (khata)', value: money.khataOwed },
+                    ]}
+                    dataKey="value"
+                    innerRadius={48}
+                    outerRadius={72}
+                    paddingAngle={2}
+                    stroke="none"
+                  >
+                    <Cell fill="#34d399" />
+                    <Cell fill="#fdba74" />
+                  </Pie>
+                  <Tooltip
+                    formatter={(v) => formatMoney(Number(v))}
+                    contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0' }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-sm text-slate-400">
+                Add stock or khata to see the breakdown.
+              </div>
+            )}
+          </div>
+
+          {/* Figures */}
+          <div className="space-y-2.5 text-sm">
+            <MoneyRow color="#34d399" label="In stock (at cost)" value={money.stockValue} />
+            <MoneyRow color="#fdba74" label="Owed to you (khata)" value={money.khataOwed} />
+            <div className="border-t border-slate-100 pt-2.5 space-y-2.5">
+              <MoneyRow
+                label="Net cash (sales − expenses)"
+                value={money.netCash}
+                strong
+                rose={money.netCash < 0}
+              />
+              <MoneyRow label="Total spent (expenses)" value={money.totalExpenses} muted />
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Recent sales */}
       <CollapsibleSection
@@ -523,6 +594,39 @@ function SummaryRow({
       <span className={muted ? 'text-slate-400' : 'text-slate-500'}>{label}</span>
       <span className={strong ? 'font-semibold text-slate-800' : muted ? 'text-slate-400' : 'text-slate-700'}>
         {value}
+      </span>
+    </div>
+  );
+}
+
+function MoneyRow({
+  color,
+  label,
+  value,
+  muted,
+  strong,
+  rose,
+}: {
+  color?: string;
+  label: string;
+  value: number;
+  muted?: boolean;
+  strong?: boolean;
+  rose?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="flex items-center gap-2 text-slate-500">
+        {color && <span className="h-2.5 w-2.5 rounded-full" style={{ background: color }} />}
+        <span className={muted ? 'text-slate-400' : ''}>{label}</span>
+      </span>
+      <span
+        className={`${strong ? 'font-bold text-base' : ''} ${
+          rose ? 'text-rose-500' : strong ? 'text-mint-600' : muted ? 'text-slate-400' : 'text-slate-700'
+        }`}
+      >
+        {rose ? '−' : ''}
+        {formatMoney(Math.abs(value))}
       </span>
     </div>
   );

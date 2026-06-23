@@ -145,6 +145,16 @@ export default function POSScreen() {
   function addToCart(product: Product) {
     setCart((prev) => {
       const existing = prev.find((l) => l.product.id === product.id);
+      const currentQty = existing?.quantity ?? 0;
+      // Don't let the cart exceed what's in stock.
+      if (currentQty + 1 > product.stock_quantity) {
+        flashToast(
+          product.stock_quantity === 0
+            ? `${product.name} is out of stock`
+            : `Only ${product.stock_quantity} in stock for ${product.name}`,
+        );
+        return prev;
+      }
       if (existing) {
         return prev.map((l) =>
           l.product.id === product.id ? { ...l, quantity: l.quantity + 1 } : l,
@@ -176,7 +186,15 @@ export default function POSScreen() {
   function setQty(productId: string, qty: number) {
     setCart((prev) =>
       prev
-        .map((l) => (l.product.id === productId ? { ...l, quantity: qty } : l))
+        .map((l) => {
+          if (l.product.id !== productId) return l;
+          // Cap to available stock.
+          if (qty > l.product.stock_quantity) {
+            flashToast(`Only ${l.product.stock_quantity} in stock for ${l.product.name}`);
+            return { ...l, quantity: l.product.stock_quantity };
+          }
+          return { ...l, quantity: qty };
+        })
         .filter((l) => l.quantity > 0),
     );
   }

@@ -16,8 +16,11 @@ import {
   Plus,
   Trash2,
   Tag,
+  Repeat,
+  Package,
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
+import { useAuth } from '../context/AuthContext';
 import type { Customer, KhataTransaction, Expense } from '../types';
 import { formatMoney } from '../lib/format';
 
@@ -402,7 +405,9 @@ function AddExpenseModal({
 // Customer detail — audit trail + repayment + WhatsApp reminder
 // ---------------------------------------------------------------------------
 function CustomerDetail({ customer, onBack }: { customer: Customer; onBack: () => void }) {
+  const { shop } = useAuth();
   const [txns, setTxns] = useState<KhataTransaction[]>([]);
+  const [purchases, setPurchases] = useState<{ name: string; qty: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [balance, setBalance] = useState(Number(customer.current_balance));
   const [payAmount, setPayAmount] = useState('');
@@ -414,16 +419,31 @@ function CustomerDetail({ customer, onBack }: { customer: Customer; onBack: () =
 
   async function loadTxns() {
     setLoading(true);
-    const [{ data: t }, { data: c }] = await Promise.all([
+    const [{ data: t }, { data: c }, { data: items }] = await Promise.all([
       supabase
         .from('khata_transactions')
         .select('*')
         .eq('customer_id', customer.id)
         .order('created_at', { ascending: false }),
       supabase.from('customers').select('current_balance').eq('id', customer.id).single(),
+      // What this customer has bought (their credit-sale line items).
+      supabase
+        .from('sales_items')
+        .select('quantity, products(name), sales_receipts!inner(customer_id)')
+        .eq('sales_receipts.customer_id', customer.id),
     ]);
     setTxns((t as KhataTransaction[]) ?? []);
     if (c) setBalance(Number((c as { current_balance: number }).current_balance));
+
+    // Aggregate purchases by product.
+    const agg = new Map<string, number>();
+    for (const it of (items as unknown as { quantity: number; products: { name: string } | null }[]) ?? []) {
+      const name = it.products?.name ?? 'Item';
+      agg.set(name, (agg.get(name) ?? 0) + it.quantity);
+    }
+    setPurchases(
+      [...agg.entries()].map(([name, qty]) => ({ name, qty })).sort((a, b) => b.qty - a.qty),
+    );
     setLoading(false);
   }
 
@@ -452,6 +472,17 @@ function CustomerDetail({ customer, onBack }: { customer: Customer; onBack: () =
       `Kindly clear it at your convenience. Shukriya!`;
     return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
   }, [customer, balance]);
+
+  // Refill / restock reminder, pre-filled with what they usually buy.
+  const refillHref = useMemo(() => {
+    const phone = (customer.phone ?? '').replace(/\D/g, '');
+    const items = purchases.slice(0, 5).map((p) => p.name).join(', ');
+    const message =
+      `Assalam-o-Alaikum ${customer.name}! Reminder from ${shop?.name ?? 'our shop'}` +
+      `${items ? ` — time to restock your ${items}` : ''}. ` +
+      `Please visit us when convenient. Shukriya!`;
+    return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+  }, [customer, purchases, shop]);
 
   return (
     <div className="space-y-5">
@@ -549,6 +580,44 @@ function CustomerDetail({ customer, onBack }: { customer: Customer; onBack: () =
             <MessageCircle size={18} /> Send WhatsApp reminder
           </a>
         </div>
+      </div>
+
+      {/* Purchases + refill reminder */}
+      <div className="breezy-card p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+          <div className="flex items-center gap-2 text-slate-800 font-bold">
+            <Package size={18} className="text-mint-600" /> What they buy
+          </div>
+          <a
+            href={refillHref}
+            target="_blank"
+            rel="noreferrer"
+            className={`flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold text-white transition active:scale-[0.98] ${
+              purchases.length > 0 && customer.phone
+                ? 'bg-green-500 hover:bg-green-600'
+                : 'bg-slate-300 pointer-events-none'
+            }`}
+          >
+            <Repeat size={16} /> Send refill reminder
+          </a>
+        </div>
+        {purchases.length === 0 ? (
+          <p className="text-sm text-slate-400">
+            No purchases recorded yet (only credit/khata sales are linked to a customer).
+          </p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {purchases.slice(0, 12).map((p) => (
+              <span
+                key={p.name}
+                className="inline-flex items-center gap-1.5 rounded-full bg-mint-100 text-mint-700 px-3 py-1 text-xs font-medium"
+              >
+                {p.name}
+                <span className="text-mint-500">×{p.qty}</span>
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Audit trail */}

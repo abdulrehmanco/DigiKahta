@@ -14,11 +14,13 @@ import {
   Trash2,
   X,
   Camera,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import type { Product } from '../types';
 import { formatMoney, daysUntil } from '../lib/format';
 import { lookupBarcodeGlobal } from '../lib/barcodeLookup';
+import ImportProductsModal from './ImportProductsModal';
 
 const BarcodeScanner = lazy(() => import('./BarcodeScanner'));
 
@@ -41,6 +43,7 @@ export default function InventoryScreen() {
   const [scanning, setScanning] = useState(false);
   const [lookup, setLookup] = useState<string | null>(null); // status message during lookup
   const [detail, setDetail] = useState<'low' | 'out' | 'expiring' | null>(null);
+  const [importing, setImporting] = useState(false);
 
   useEffect(() => {
     void load();
@@ -191,6 +194,13 @@ export default function InventoryScreen() {
           />
         </div>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setImporting(true)}
+            className="flex items-center gap-2 rounded-full bg-white text-slate-600 border border-slate-200 px-4 py-3 font-semibold hover:bg-slate-50 shadow-sm active:scale-[0.98]"
+          >
+            <FileSpreadsheet size={18} /> Import CSV
+          </button>
           <button
             type="button"
             onClick={() => setScanning(true)}
@@ -435,6 +445,13 @@ export default function InventoryScreen() {
             setDetail(null);
             setFormTarget(p); // jump straight into editing that product
           }}
+        />
+      )}
+
+      {importing && (
+        <ImportProductsModal
+          onClose={() => setImporting(false)}
+          onDone={() => void load()}
         />
       )}
     </div>

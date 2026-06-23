@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
-import { LogIn, UserPlus, Loader2, TreePalm, MailCheck } from 'lucide-react';
+import { LogIn, UserPlus, Loader2, MailCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import Logo from './Logo';
 
 type Mode = 'signin' | 'signup';
 
@@ -47,8 +48,8 @@ export default function Login() {
       <div className="pointer-events-none absolute -bottom-24 -right-24 h-72 w-72 rounded-full bg-peach-200/50 blur-3xl" />
       <div className="relative w-full max-w-sm breezy-card shadow-lg p-8">
         <div className="flex flex-col items-center mb-6">
-          <div className="h-14 w-14 rounded-2xl bg-mint-200 flex items-center justify-center mb-3 shadow-sm">
-            <TreePalm className="text-mint-600" size={28} />
+          <div className="h-14 w-14 rounded-2xl overflow-hidden mb-3 shadow-sm">
+            <Logo className="h-full w-full" />
           </div>
           <h1 className="text-2xl font-bold text-slate-800">Mizan Al-Raees</h1>
           <p className="text-sm text-slate-500">

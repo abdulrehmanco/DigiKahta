@@ -7,8 +7,8 @@ import {
   BarChart3,
   PackageCheck,
   ReceiptText,
+  Users,
   LogOut,
-  TreePalm,
   Menu,
   X,
   Loader2,
@@ -18,6 +18,7 @@ import {
   PanelLeftClose,
 } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import Logo from './components/Logo';
 import Login from './components/Login';
 import GlobalSearch from './components/GlobalSearch';
 import SyncIndicator from './components/SyncIndicator';
@@ -28,8 +29,17 @@ import RestockScreen from './components/RestockScreen';
 import SalesScreen from './components/SalesScreen';
 import AnalyticsScreen from './components/AnalyticsScreen';
 import KhataScreen from './components/KhataScreen';
+import StaffScreen from './components/StaffScreen';
 
-type ScreenId = 'dashboard' | 'pos' | 'inventory' | 'restock' | 'ledger' | 'sales' | 'analytics';
+type ScreenId =
+  | 'dashboard'
+  | 'pos'
+  | 'inventory'
+  | 'restock'
+  | 'ledger'
+  | 'sales'
+  | 'analytics'
+  | 'staff';
 
 interface NavItem {
   id: ScreenId;
@@ -46,6 +56,7 @@ const NAV: NavItem[] = [
   { id: 'ledger', label: 'Ledger', icon: <BookUser size={20} /> },
   { id: 'sales', label: 'Sales', icon: <ReceiptText size={20} />, ownerOnly: true },
   { id: 'analytics', label: 'Analytics', icon: <BarChart3 size={20} />, ownerOnly: true },
+  { id: 'staff', label: 'Staff', icon: <Users size={20} />, ownerOnly: true },
 ];
 
 const TITLES: Record<ScreenId, string> = {
@@ -56,6 +67,7 @@ const TITLES: Record<ScreenId, string> = {
   ledger: 'Digital Ledger',
   sales: 'Sales History',
   analytics: 'Business Advisor',
+  staff: 'Staff',
 };
 
 function Shell() {
@@ -86,14 +98,14 @@ function Shell() {
   }
 
   const Sidebar = (
-    <aside className="flex flex-col h-full w-64 bg-white/80 backdrop-blur border-r border-white">
+    <aside className="flex flex-col h-full w-64 bg-gradient-to-b from-slate-950 via-slate-900 to-emerald-950 border-r border-slate-800/60">
       {/* Brand */}
       <div className="flex items-center gap-3 px-5 h-20">
-        <div className="h-11 w-11 rounded-2xl bg-mint-200 flex items-center justify-center shadow-sm">
-          <TreePalm className="text-mint-600" size={24} />
+        <div className="h-11 w-11 rounded-2xl overflow-hidden shadow-sm shrink-0">
+          <Logo className="h-full w-full" />
         </div>
         <div className="min-w-0">
-          <div className="font-bold text-slate-800 leading-tight truncate">
+          <div className="font-bold text-white leading-tight truncate">
             {shop?.name ?? 'Mizan Al-Raees'}
           </div>
           <div className="text-[11px] text-slate-400">POS &amp; Digital Accounts</div>
@@ -111,23 +123,23 @@ function Shell() {
               onClick={() => go(item.id)}
               className={`w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition ${
                 activeScreen
-                  ? 'bg-mint-200 text-slate-800 shadow-sm'
-                  : 'text-slate-500 hover:bg-mint-50'
+                  ? 'bg-mint-300 text-slate-900 shadow-sm'
+                  : 'text-slate-300 hover:bg-white/10 hover:text-white'
               }`}
             >
-              <span className={activeScreen ? 'text-mint-600' : 'text-slate-400'}>{item.icon}</span>
+              <span className={activeScreen ? 'text-slate-900' : 'text-slate-400'}>{item.icon}</span>
               <span className="flex-1 text-left">{item.label}</span>
-              {locked && <Lock size={14} className="text-slate-300" />}
+              {locked && <Lock size={14} className="text-slate-500" />}
             </button>
           );
         })}
       </nav>
 
-      <div className="px-3 py-4">
+      <div className="px-3 py-4 border-t border-slate-800">
         <button
           type="button"
           onClick={signOut}
-          className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-slate-500 hover:bg-rose-50 hover:text-rose-500 transition"
+          className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-slate-300 hover:bg-rose-500/15 hover:text-rose-300 transition"
         >
           <LogOut size={18} /> Sign out
         </button>
@@ -185,25 +197,31 @@ function Shell() {
           {/* Connectivity / offline-sync status */}
           <SyncIndicator />
 
-          {/* User chip */}
-          <div className="relative">
+          {/* Shop chip — far right */}
+          <div className="relative shrink-0 ml-auto">
             <button
               type="button"
               onClick={() => setMenuOpen((v) => !v)}
               className="flex items-center gap-2 rounded-full bg-white/80 backdrop-blur border border-white pl-1.5 pr-3 py-1.5 shadow-sm"
             >
-              <span className="h-8 w-8 rounded-full bg-mint-300 text-white flex items-center justify-center text-sm font-bold">
-                {(profile.email[0] ?? '?').toUpperCase()}
+              <span className="h-8 w-8 rounded-full bg-mint-300 text-slate-900 flex items-center justify-center text-sm font-bold">
+                {(shop?.name?.[0] ?? '?').toUpperCase()}
               </span>
-              <span className="hidden sm:block text-sm font-medium text-slate-700 max-w-[160px] truncate">
-                {profile.email}
+              <span className="hidden sm:block text-sm font-semibold text-slate-700 max-w-[160px] truncate">
+                {shop?.name ?? 'My Shop'}
               </span>
               <ChevronDown size={16} className="text-slate-400" />
             </button>
             {menuOpen && (
-              <div className="absolute right-0 mt-2 w-44 breezy-card p-1.5 z-20">
-                <div className="px-3 py-2 text-[11px] uppercase tracking-wide font-semibold text-mint-600">
-                  {profile.role}
+              <div className="absolute right-0 mt-2 w-60 breezy-card p-1.5 z-20">
+                <div className="px-3 py-2">
+                  <div className="text-sm font-semibold text-slate-800 truncate">
+                    {shop?.name ?? 'My Shop'}
+                  </div>
+                  <div className="text-xs text-slate-400 truncate">{profile.email}</div>
+                  <div className="text-[11px] uppercase tracking-wide font-semibold text-mint-600 mt-1">
+                    {profile.role}
+                  </div>
                 </div>
                 <button
                   type="button"
@@ -229,6 +247,7 @@ function Shell() {
           {screen === 'restock' && <RestockScreen />}
           {screen === 'ledger' && <KhataScreen />}
           {screen === 'sales' && <SalesScreen />}
+          {screen === 'staff' && <StaffScreen />}
           {screen === 'analytics' && <AnalyticsScreen />}
         </main>
       </div>

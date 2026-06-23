@@ -9,6 +9,7 @@ import {
   Wallet,
   Banknote,
   Lock,
+  RotateCcw,
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
@@ -58,11 +59,30 @@ export default function SalesScreen() {
   const [period, setPeriod] = useState<Period>('today');
   const [tab, setTab] = useState<Tab>('product');
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [voiding, setVoiding] = useState<string | null>(null);
 
   useEffect(() => {
     if (isCashier) return; // owner-only screen
     void load();
   }, [isCashier]);
+
+  async function voidSale(receiptId: string) {
+    if (
+      !window.confirm(
+        'Void this sale? It will restock the items and reverse any khata. This cannot be undone.',
+      )
+    )
+      return;
+    setVoiding(receiptId);
+    const { error } = await supabase.rpc('process_return', { p_receipt_id: receiptId });
+    setVoiding(null);
+    if (error) {
+      window.alert(`Could not void: ${error.message}`);
+      return;
+    }
+    setExpanded(null);
+    await load();
+  }
 
   async function load() {
     setLoading(true);
@@ -295,6 +315,19 @@ export default function SalesScreen() {
                     {lines.length === 0 && (
                       <div className="text-xs text-slate-400">No line items recorded.</div>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => voidSale(r.id)}
+                      disabled={voiding === r.id}
+                      className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-rose-50 text-rose-500 px-3 py-1.5 text-xs font-semibold hover:bg-rose-100 disabled:opacity-50"
+                    >
+                      {voiding === r.id ? (
+                        <Loader2 className="animate-spin" size={13} />
+                      ) : (
+                        <RotateCcw size={13} />
+                      )}
+                      Void sale (restock &amp; reverse)
+                    </button>
                   </div>
                 )}
               </div>
